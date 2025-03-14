@@ -1,0 +1,581 @@
+Link to Word DOC : https://atlantictu-my.sharepoint.com/:w:/g/personal/s00273249_atu_ie/EQTagU44yZRLsRk8H70AvtMBGk4JXBqhY9N0dfC_eGkQvg?e=KglCn5
+------------------------------------------------------------------------------------------------------------------------------------------------
+Smart Thermostat for Dart Frog and Gecko Vivarium
+Name: Daniel McNamee Email: S00273249@atu.ie
+Student Number: S00273249
+Trello Page: https://trello.com/b/n9sFGZsO
+GitHub Team Page: Daniel-McNamee/IoT_Project: Vivarium Smart Thermostat
+------------------------------------------------------------------------
+Project Summary
+Problem Statement
+Maintaining optimal environmental conditions in a dart frog and gecko vivarium is crucial for the health and well-being of these reptiles and amphibians. These species require precise temperature and humidity levels to thrive, but manual monitoring and control can be cumbersome, time-consuming and inefficient. Traditional thermostats often lack remote monitoring capabilities and personalised automation, making it challenging to ensure a stable habitat, especially when away for long periods. This is a problem I have personal experience with (especially when I am away at college until late evening) and will be able to trial and test firsthand with in my home setup.
+Proposed Solution
+This project aims to develop a smart thermostat system using a Raspberry Pi to automate temperature and humidity regulation within the vivarium. The system will continuously monitor environmental conditions using sensors and control a UVB bulb or heating mat based on real-time temperature readings. A relay module will be used to turn the heating element on or off depending on predefined thresholds.
+Key Features:
+1.	Automated Temperature Control:
+o	The system will turn the heating source on when the temperature drops below 20°C and turn it off once it reaches 25°C, ensuring an ideal range of 20-24°C is maintained.
+2.	Real-Time Sensor Monitoring:
+o	Temperature and humidity data will be collected every 5 minutes using a DHT22 or DS18B20 sensor, logged for analysis and displayed in charts.
+3.	Remote Access & Control:
+o	Sensor readings will be posted to a website, allowing real-time monitoring.
+o	A web interface will enable manual override of the heating system, as a safety precaution I will include a remote kill switch.
+4.	Security & Reliability:
+o	The system will implement authentication to restrict access.
+o	Data transmission will be secured via HTTPS encryption.
+
+Expected Benefits:
+•	Improved Stability: Ensures a consistent and healthy environment for the animals.
+•	Convenience: Allows remote monitoring and control from any device.
+•	Energy Efficiency: Reduces unnecessary power usage by automating heating cycles.
+•	Scalability: The system can be expanded to support additional sensors and controls for further temperature control, humidity control or lighting.
+This smart thermostat project combines IoT, automation, and remote accessibility to create a customisable, cost-effective, reliable, and efficient solution for vivarium management.
+
+Project Solution Summary
+Introduction
+Maintaining an optimal environment in a dart frog and gecko vivarium is essential for the health and well-being of these animals. Proper temperature and humidity levels prevent stress, illness, and other health complications. However, manually regulating these conditions can be inefficient and unreliable, particularly when the owner is unavailable. Traditional thermostats lack real-time monitoring and remote control capabilities, making them less effective for precise habitat management.
+To address these challenges, this project proposes the development of a smart thermostat system using a Raspberry Pi. The system will continuously monitor temperature and humidity, automatically control a UVB bulb or heating mat, and provide remote access to live data and manual controls. By integrating sensor technology, IoT communication, and web-based control, this solution offers a personalised, cost-effective, energy-efficient, and scalable approach to vivarium climate regulation.
+________________________________________
+System Architecture and Components
+1. Temperature and Humidity Monitoring
+A DHT22 or DS18B20 sensor will be used to measure temperature and humidity inside the vivarium. These sensors will provide high-accuracy readings at five-minute intervals, ensuring real-time tracking of environmental conditions. The Raspberry Pi will process and log this data for monitoring and analysis.
+2. Automated Heating Control
+The system will regulate the vivarium's temperature by controlling a UVB bulb or low-voltage heating mat. A relay module will serve as a switch to turn the heating element on or off based on predefined temperature thresholds:
+•	Heating ON if the temperature drops below 20°C
+•	Heating OFF once the temperature reaches 25°C
+This automation maintains the ideal temperature range of 20-24°C, preventing excessive cooling or overheating.
+
+
+3. Web-Based Remote Monitoring and Control
+To enhance usability, the system will send real-time temperature and humidity data to a web interface. Users will be able to:
+•	View live sensor readings and historical data trends.
+•	Manually turn the heating element ON/OFF as a safety override.
+•	Receive alerts if temperatures fall outside the expected range.
+4. Security and Reliability Features
+Since the system involves remote access and IoT functionality, security measures will be implemented to prevent unauthorized control and data manipulation:
+•	User Authentication: Secure login credentials to restrict access to the web interface.
+•	HTTPS Encryption: Ensuring secure data transmission between the Raspberry Pi and the web server.
+________________________________________
+
+Benefits and Impact
+1. Consistent and Precise Environmental Control
+The automated heating system ensures that the vivarium remains within the optimal temperature range, eliminating the risks associated with human error and the need for manual adjustments.
+2. Remote Accessibility for Convenience and Safety
+Users can monitor and adjust the vivarium's climate from any location, making it easier to care for the animals even when away from home. The manual override function adds an extra layer of safety in case of unexpected conditions.
+3. Energy Efficiency and Cost Savings
+By automatically turning the heating element on only when needed, the system reduces power consumption, leading to lower energy costs while ensuring the animals' well-being.
+4. Scalability for Future Enhancements
+The project architecture allows for future expansions, such as:
+•	Humidity Control: Adding misting systems for moisture regulation.
+•	Additional Sensors: Monitoring CO₂ levels, soil moisture content or UV intensity.
+•	Smart Alerts: Sending notifications via email or mobile apps for emergency situations.
+•	Expanding Operations: I have chosen an 8 channel relay to allow for further expansion of the project, allowing control of additional devices.________________________________________
+
+
+Conclusion
+This smart thermostat project leverages IoT, automation, and web-based control to provide a reliable, efficient, and intelligent solution for vivarium climate management. By ensuring precise environmental regulation, offering remote monitoring, and incorporating security measures, this system provides a practical and scalable solution for exotic pet enthusiasts.
+
+Project Requirements
+1. Hardware Requirements
+•	Raspberry Pi 5 4GB – Serves as the central processing unit for sensor data collection, automation, and web communication.
+•	DHT22 or DS18B20 Sensor – Measures temperature and humidity within the vivarium.
+•	Relay Module (5V or 3.3V compatible) – Controls the UVB bulb or heating mat based on temperature readings.
+•	UVB Bulb or Heating Mat – Provides heat when temperatures fall below the set threshold.
+•	Power Supply (5V, 2.5A for Raspberry Pi) – Ensures stable power for the Raspberry Pi and connected components.
+•	MicroSD Card (32GB or higher, Class 10) – Stores the operating system, scripts, and data logs.
+2. Software Requirements
+•	Raspberry Pi OS – Operating system for running Python scripts and handling web connectivity.
+•	Python (with required libraries) – Used for data collection, processing, and relay control.
+•	Flask (or PHP-based web server) – Creates the web interface for remote monitoring and manual control.
+•	MariaDB or SQLite – Stores sensor data for logging and analysis.
+•	Secure API (Flask or PHP-based) – Allows authenticated remote control of the heating system.
+3. Functional Requirements
+•	The system must automatically turn on the heating element when the temperature drops below 20°C and turn it off at 25°C.
+•	Sensor readings should be collected and logged every 5 minutes for analysis.
+•	A web-based dashboard should display real-time temperature and humidity readings and provide a log of past readings in 24hr segments.
+•	The user must be able to manually override the heating system via the web interface.
+•	The system should provide alerts or warnings if temperatures go outside the defined safety range.
+
+4. Security Requirements
+•	The web interface must include user authentication to restrict unauthorized access.
+•	All data transmissions must be encrypted using HTTPS for security.
+•	The Raspberry Pi must be secured with a firewall and SSH hardening to prevent unauthorized remote access.
+5. Connectivity Requirements
+•	The Raspberry Pi must have Wi-Fi or Ethernet connectivity to send data to the web server.
+•	The web interface should be accessible from any device connected to the internet.
+6. Safety and Reliability Requirements
+•	The relay module must be properly rated for the UVB bulb or heating mat to prevent electrical failures.
+•	The system should include fail-safe mechanisms, such as a manual power switch and a remote kill switch.
+•	The enclosure for electrical components must be insulated and moisture-resistant to prevent short circuits.
+Initial Design
+Sketch of Proposed Design
+
+1. Proposed Code Design
+The project will be built using Python to interface with the DHT22 sensor for temperature and humidity monitoring and a relay module to control the UVB bulb. A Flask-based web interface will provide real-time monitoring and manual control.
+1.1 Software Architecture
+The system consists of the following key components:
+Component	Description
+Sensor Module	Reads temperature and humidity from the DHT22 sensor every minute.
+Relay Controller	Turns the UVB bulb on/off based on temperature thresholds or manual input.
+Web Dashboard	Displays real-time temperature, humidity, and bulb status.
+Data Logger	Stores temperature and humidity readings in a database (MySQL).
+Scheduler	Uses cron or systemd to run scripts at regular intervals.
+
+1.2 Key Python Modules
+•	RPi.GPIO → Controls the relay module.
+•	Adafruit_DHT → Reads sensor data.
+•	Flask → Creates a web-based control dashboard.
+•	SQLite3 or MySQL.connector → Stores sensor readings.
+•	Requests → Sends data to a cloud server.
+1.3 Example Code Structure
+•	sensor.py → Reads DHT22 data and stores it in a database.
+•	relay.py → Controls the relay module based on temperature conditions.
+•	server.py → Hosts the web interface using Flask.
+•	database.py → Manages sensor data storage.
+
+
+
+
+
+2. Proposed Hardware Setup
+2.1 Hardware Components
+Component	Purpose
+Raspberry Pi 5	Main processing unit.
+DHT22 Sensor	Measures temperature and humidity.
+Relay Module	Controls the UVB bulb.
+UVB Bulb	Provides heat and UV radiation for the vivarium.
+Power Supply	Provides power to the Raspberry Pi and relay module.
+RGB LCD Screen    	Displays real-time temperature and humidity.
+	
+2.2 Wiring Diagram
+•	DHT22 Sensor Wiring
+o	VCC → 5V (Pin 2)
+o	GND → Ground (Pin 6)
+o	DATA → GPIO 4 (Pin 7)
+o	10kΩ pull-up resistor between VCC and DATA
+•	Relay Wiring for UVB Bulb
+o	Relay VCC → Raspberry Pi 5V
+o	Relay GND → Raspberry Pi GND
+o	Relay IN1 → Raspberry Pi GPIO 17 (Pin 11)
+o	AC Live Wire → Relay COM
+o	Bulb Live Wire → Relay NO
+
+
+
+
+
+
+3. Description of APIs and Data Processing
+3.1 APIs for Web Integration
+The project can use the Flask REST API to send and receive data from a remote web interface.
+Planned API Endpoints
+Endpoint	Method	Function
+/api/data	GET	Retrieve the latest temperature & humidity.
+/api/control	POST	Turn the UVB bulb on/off manually.
+
+3.2 Data Processing and Storage
+•	Sensor data (temperature & humidity) is stored in an SQLite/MySQL database for logging and analysis.
+•	Data is retrieved via the Flask API and displayed on the web dashboard.
+•	A cron job runs every 5 minutes to log new sensor readings.
+
+3.3 Data Management & Security
+•	Data Encryption: All API requests will use SSL/TLS.
+•	Authentication: JWT tokens will be used for API access control.
+•	Data Logging: A rolling log system will prevent excessive database growth.
+
+
+
+
+
+
+
+
+Data Management Plan for Smart Thermostat System
+1. Description of Data Generated
+The smart thermostat system generates two main types of data:
+A. Sensor Data (Collected every 5 minutes)
+•	Temperature (°C) – Numeric value from the DHT22 or DS18B20 sensor.
+•	Humidity (%) – Numeric value from the DHT22 sensor.
+•	Timestamp – Date and time of each reading.
+B. Control Data (User commands via web interface)
+•	Relay Status (ON/OFF) – Indicates if the UVB bulb or heating mat is active.
+•	Manual Override Commands – User input (ON or OFF) sent to control the heater.
+•	Security Logs – Tracks login attempts and API requests for security purposes.
+
+2. Datasets Used
+The project will maintain structured datasets for analysis, logging, and troubleshooting.
+
+A. Sensor Readings Dataset
+ID	Temperature (°C)	Humidity (%)	Timestamp
+1	22.3	65.2	2025-03-09 12:00:00
+2	21.8	64.8	2025-03-09 12:05:00
+3	19.2	70.0	2025-03-09 12:10:00
+			
+B. Control Logs Dataset
+ID	Command	Timestamp	Source (User/API)
+1	ON	2025-03-09 12:10:10	Auto
+2	OFF	2025-03-09 12:15:30	User (Web)
+
+
+
+3. APIs Used
+The Flask-based API enables communication between the Raspberry Pi, database, and web dashboard.
+A. API Endpoints
+Endpoint	Method	Description
+/update	POST	Receives sensor data (temperature, humidity).
+/data	GET	Returns the latest sensor readings.
+/control	POST	Accepts user commands to manually control the heating system.
+________________________________________
+4. Data Storage and Management
+The system will use MariaDB (or XAMPP, MySQL) to manage sensor readings, control logs, and security data.
+A. Data Retention Policy
+•	Sensor readings older than 30 days will be deleted to save storage space.
+•	Control logs will be stored for security and troubleshooting purposes for up to 3 months.
+________________________________________
+5. Security Measures for Data Management
+To prevent unauthorized access and data tampering, the following security measures will be implemented:
+A. API Security
+•	Authentication – Users must log in to access control functions.
+•	HTTPS Encryption – Ensures secure data transmission.
+B. Database Security
+•	Restricted Access – Only the Raspberry Pi and authorized users can write to the database.
+________________________________________
+Conclusion
+This data management plan ensures efficient storage, secure transmission, and easy retrieval of sensor readings and control logs. By integrating a structured database, secure APIs, and web-based controls, the system provides a scalable and reliable solution for vivarium temperature regulation.
+Implementation Plan for Smart Thermostat System
+This plan outlines the equipment needed, parts list, APIs, and code samples for implementing the Raspberry Pi-based smart thermostat system.
+________________________________________
+1. Equipment & Parts List
+A. Core Components
+Item	Purpose	Quantity	Estimated Cost 
+Raspberry Pi 4 (or 3B+)	Main controller	1	50-70
+MicroSD Card (32GB, Class 10)	Raspberry Pi OS & storage	1	10-15
+Power Supply (5V, 3A USB-C)	Powers Raspberry Pi	1	10-15
+DHT22 or DS18B20 Sensor	Temperature & humidity readings	1	5-10
+4-channel Relay Module (5V)	Controls UVB bulb/heating mat	1	5-10
+UVB Bulb or Heating Mat	Provides heat	1	Varies
+Jumper Wires	Connects components	10+	5
+Breadboard	Prototyping connections	1	5
+B. Optional Components
+Item	Purpose	Quantity	Estimated Cost 
+Wi-Fi Dongle (if using Raspberry Pi 3)	Internet connection	1	10-15
+Case for Raspberry Pi	Protection	1	10
+Resistors (10kΩ)	Pull-up resistor for sensor	1	1
+________________________________________
+
+
+
+
+
+
+2. System Setup & Connections
+
+A. Connecting the Sensor to Raspberry Pi
+DHT22 Connection (Temperature & Humidity Sensor)
+DHT22 Pin	Raspberry Pi Pin
+VCC (Power)	3.3V (Pin 1)
+Data	GPIO4 (Pin 7)
+GND	GND (Pin 6)
+DS18B20 Connection (Alternative Temperature Sensor)
+DS18B20 Pin	Raspberry Pi Pin
+VCC (Power)	3.3V (Pin 1)
+Data	GPIO4 (Pin 7)
+GND	GND (Pin 6)
+A 10kΩ pull-up resistor should be placed between the VCC and Data pins.
+________________________________________
+
+B. Connecting the Relay Module
+Relay Module Connection (For UVB Bulb/Heating Mat Control)
+Relay Pin	Raspberry Pi Pin
+VCC	5V (Pin 2)
+GND	GND (Pin 6)
+IN1	GPIO17 (Pin 11)
+Note:
+•	The relay will act as a switch to control the power to the heating device.
+•	If using a low-voltage heating mat (DC 12V), the relay will control a 12V power adapter instead of AC mains.
+________________________________________
+
+
+
+
+3. APIs to Be Used
+API Endpoint	Method	Purpose
+/update	POST	Sends temperature & humidity readings from Raspberry Pi to server
+/data	GET	Retrieves the latest sensor readings for the web dashboard
+/control	POST	Accepts user commands to turn the heater ON/OFF
+________________________________________
+
+4. Code Implementation
+Current Working LCD Display Script (Sensor Data & LCD Display)			{No Switch}
+import time
+import board
+import adafruit_dht
+from RPLCD.i2c import CharLCD
+
+# Initialize DHT22 sensor on GPIO16
+dht_sensor = adafruit_dht.DHT22(board.D16)
+
+# Initialize 16x2 I2C LCD at address 0x27
+lcd = CharLCD('PCF8574', 0X27, cols=16, rows=2)
+
+def main():
+    print("Starting temperature and humidity monitoring...")
+    last_reading = 0  # Last successful reading time
+
+    while True:
+        current_time = time.time()
+
+        if current_time - last_reading >= 2.0:
+            try:
+                temperature = dht_sensor.temperature
+                humidity = dht_sensor.humidity
+
+                if temperature is not None and humidity is not None:
+                    print(f"Temperature: {temperature:.1f}C, Humidity: {humidity:.1f}%")
+
+                    lcd.clear()
+                    lcd.cursor_pos = (0, 0)
+                    lcd.write_string(f"Temp: {temperature:.1f}C")
+                    lcd.cursor_pos = (1, 0)
+                    lcd.write_string(f"Humidity: {humidity:.1f}%")
+
+                    last_reading = current_time  # Update last successful reading time
+                else:
+                    print("Failed to get reading. Try again!")
+                    
+            except RuntimeError as e:
+                print(f"Reading error: {e}")
+                lcd.clear()
+                lcd.cursor_pos = (0, 0)
+                lcd.write_string("Sensor error")
+                time.sleep(2)  # Give some delay to avoid spamming errors
+
+            except Exception as e:
+                print(f"Other error: {e}")
+                lcd.clear()
+                lcd.cursor_pos = (0, 0)
+                lcd.write_string("Error")
+                time.sleep(2)
+
+        time.sleep(0.1)  # Small delay to reduce CPU usage
+
+if __name__ == "__main__":
+    try:
+        main()
+    except KeyboardInterrupt:
+        print("Program terminated by user")
+        lcd.clear()
+        lcd.close()
+
+
+
+
+
+Current Working DHT22 Sensor Script (AM2302)					{No Button}
+import adafruit_dht
+import board
+import time
+
+dht_device = adafruit_dht.DHT22(board.D16)  # Adjust if using a different port
+
+while True:
+    try:
+        temperature = dht_device.temperature
+        humidity = dht_device.humidity
+        print(f"Temp: {temperature:.1f} C  Humidity: {humidity:.1f} %")
+    except RuntimeError as e:
+        print(f"Error: {e}")
+    time.sleep(2)
+
+
+
+
+
+Work In Progress (Not yet functional) On/Off Switch to Power LCD Display and Run Program
+import time
+import board
+import digitalio
+import adafruit_dht
+from RPLCD.i2c import CharLCD
+import RPi.GPIO as GPIO
+
+# Setup GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(21, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+# Setup for DHT sensor AM2302
+dht_sensor = adafruit_dht.DHT22(board.D16)
+
+# Setup for LCD display 
+lcd = CharLCD('PCF8574', 0X27, cols=16, rows=2)
+
+def display_off_message():
+        lcd.clear()
+        lcd.cursor_pos = (0, 0)
+        lcd.write_string("shutting down...")
+        lcd.cursor_pos = (1, 0)
+        lcd.write_string("Goodbye!")
+        time.sleep(5)
+        lcd.clear()
+        lcd.backlight_enabled = False
+
+def main():
+        print("Starting temperature and humidity monitoring...")
+        last_reading = 0
+        system_active = False
+
+        try:
+                while True:
+			switch_state = GPIO.input(21)
+
+                        if switch_state == GPIO.HIGH and not system_active:
+                                print("Switch Turned ON - Starting display")
+                                system_active = True
+                                lcd.backlight_enabled = True
+                                lcd.clear()
+                                lcd.cursor_pos = (0, 0)
+                                lcd.write_string("starting up...")
+                                time.sleep(5)
+
+                        elif switch_state == GPIO.LOW and system_active:
+                                print("Switch turned OFF - Shutting down display")
+                                display_off_message()
+                                system_active = False
+
+                        if system_active:
+                                current_time = time.time()
+
+                                if current_time - last_reading >= 5.0:
+                                        try:
+                                                temperature = dht_sensor.temperature
+                                                humidity = dht_sensor.humidity
+
+                                                if temperature is not None and humidity is not None:
+							print(f"Temperature: {temperature:.1f}C, Humidity: {humidity:.1f}%")
+                                                        lcd.clear()
+                                                        lcd.cursor_pos = (0, 0)
+                                                        lcd.write_string(f"Temp: {temperature:.1f}C")
+                                                        lcd.cursor_pos = (1, 0)
+                                                        lcd.write_string(f"Humidity: {humidity:.1f}%")
+
+                                                        last_reading = current_time
+                                                else:
+                                                        print("Failed to get reading. Try again!")
+                                        except RuntimeError as e:
+                                                print(f"Reading error: {e}")
+                                                lcd.clear()
+                                                lcd.cursor_pos = (0, 0)
+                                                lcd.write_string("Sensor error")
+                                        except Exception as e:
+                                                print(f"other error: {e}")
+                                                lcd.clear()
+                                                lcd.cursor_pos = (0, 0)
+                                                lcd.write_string("Error")
+
+                                time.sleep(0.1)
+
+        except KeyboardInterrupt:
+                print("Program terminated by user")
+        finally:
+                lcd.clear()
+                lcd.close()
+                GPIO.cleanup()
+
+if __name__ == "__main__":
+        main()
+
+
+
+
+5. Testing & Deployment Plan
+1.	Hardware Testing
+o	Verify sensor readings with test scripts.
+o	Test relay activation using GPIO.output (RELAY_PIN, GPIO.LOW) and GPIO.HIGH.
+2.	Software Testing
+o	Ensure API calls correctly update data.
+o	Verify the web interface reflects real-time sensor readings.
+3.	Deployment
+o	Host the Flask API on a cloud server (e.g., AWS, DigitalOcean, Raspberry Pi Local Server).
+o	Set up a cron job to run the Python script automatically.
+
+Testing Approach for Smart Thermostat System
+This section outlines the testing strategy for both hardware and software components of the smart thermostat system. It includes test plans, methods, and evidence of tests carried out to ensure the system functions correctly.
+________________________________________
+1. Testing Strategy
+A. Hardware Testing
+Goal: Ensure all physical components (Raspberry Pi, sensors, relays, heating system) function correctly.
+B. Software Testing
+Goal: Verify the Python scripts, Flask API, database, and web interface operate as expected.
+________________________________________
+2. Hardware Testing Plan
+A. Sensor Testing (DHT22 / DS18B20)
+Objective: Verify that the sensor accurately reads temperature and humidity.
+Method:
+1.	Run a Python script to retrieve sensor readings.
+2.	Compare values with a commercial thermometer/hygrometer.
+3.	Log readings every 5 minutes for at least 24 hours to check for data inconsistencies.
+B. Web Interface Testing
+Test Case 1: Display Sensor Readings
+•	Open the web dashboard in a browser.
+•	Check if temperature and humidity values update every 5 minutes.
+Data displayed correctly on the web page.
+Test Case 2: Manual Relay Control from Web
+•	Click "Turn Heater ON/OFF" button.
+•	Check API response and physical relay activation.
+Web controls successfully toggled relay state.
+________________________________________
+
+4. Stress Testing
+A. Long-Term Sensor Testing
+•	Run the sensor logging script continuously for 48 hours.
+•	Verify that temperature and humidity updates remain consistent.
+No major deviations or failed readings.
+B. API Load Testing
+•	Simulate 100 API requests per minute using Apache JMeter.
+Server handles requests without crashing.
+
+
+
+
+
+
+
+
+
+
+
+
+
+5. Evidence of Tests Carried Out
+A. Sensor Readings Log 
+Console Sensor Readings Script Output
+ 
+        ^ LCD Display Output
+Security Analysis for Smart Thermostat System
+Ensuring security in the smart thermostat system is crucial to prevent unauthorized access,  data breaches, and system malfunctions. The following security measures address potential vulnerabilities:
+
+1. Network Security
+•	Use HTTPS for API communication: Encrypt all data transmissions using SSL/TLS to prevent eavesdropping.
+•	Restrict API access: Implement authentication (e.g., JSON Web Tokens) to ensure only authorized users can send or receive data.
+
+2. Device & System Security
+•	Disable unused services: Turn off SSH access when not in use to reduce vulnerability.
+•	Use strong passwords: Secure the Raspberry Pi with a strong password to prevent brute-force attacks.
+•	Automatic software updates: Keep the Raspberry Pi OS and installed packages updated to patch vulnerabilities.
+
+3. Data Security
+•	Encrypt stored data: Protect user data stored in the database using encryption.
+•	Implement input validation: Prevent injection attacks by sanitizing user inputs and API requests.
+
+4. Physical Security
+•	Protect hardware from tampering: Secure the Raspberry Pi and connected components in a secure container.
+•	Power supply protection: Use surge protectors to prevent damage from power fluctuations.
+
+
+
+
+
+Images and Videos from project
+
+
+
+
