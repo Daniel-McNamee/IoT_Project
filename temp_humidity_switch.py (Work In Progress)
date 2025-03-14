@@ -1,0 +1,91 @@
+import time
+import board
+import digitalio
+import adafruit_dht
+from RPLCD.i2c import CharLCD
+import RPi.GPIO as GPIO
+
+# Setup GPIO
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(21, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+
+# Setup for DHT sensor AM2302
+dht_sensor = adafruit_dht.DHT22(board.D16)
+
+# Setup for LCD display 
+lcd = CharLCD('PCF8574', 0X27, cols=16, rows=2)
+
+def display_off_message():
+        lcd.clear()
+        lcd.cursor_pos = (0, 0)
+        lcd.write_string("shutting down...")
+        lcd.cursor_pos = (1, 0)
+        lcd.write_string("Goodbye!")
+        time.sleep(5)
+        lcd.clear()
+        lcd.backlight_enabled = False
+
+def main():
+        print("Starting temperature and humidity monitoring...")
+        last_reading = 0
+        system_active = False
+
+        try:
+                while True:
+			switch_state = GPIO.input(21)
+
+                        if switch_state == GPIO.HIGH and not system_active:
+                                print("Switch Turned ON - Starting display")
+                                system_active = True
+                                lcd.backlight_enabled = True
+                                lcd.clear()
+                                lcd.cursor_pos = (0, 0)
+                                lcd.write_string("starting up...")
+                                time.sleep(5)
+
+                        elif switch_state == GPIO.LOW and system_active:
+                                print("Switch turned OFF - Shutting down display")
+                                display_off_message()
+                                system_active = False
+
+                        if system_active:
+                                current_time = time.time()
+
+                                if current_time - last_reading >= 5.0:
+                                        try:
+                                                temperature = dht_sensor.temperature
+                                                humidity = dht_sensor.humidity
+
+                                                if temperature is not None and humidity is not None:
+							print(f"Temperature: {temperature:.1f}C, Humidity: {humidity:.1f}%")
+                                                        lcd.clear()
+                                                        lcd.cursor_pos = (0, 0)
+                                                        lcd.write_string(f"Temp: {temperature:.1f}C")
+                                                        lcd.cursor_pos = (1, 0)
+                                                        lcd.write_string(f"Humidity: {humidity:.1f}%")
+
+                                                        last_reading = current_time
+                                                else:
+                                                        print("Failed to get reading. Try again!")
+                                        except RuntimeError as e:
+                                                print(f"Reading error: {e}")
+                                                lcd.clear()
+                                                lcd.cursor_pos = (0, 0)
+                                                lcd.write_string("Sensor error")
+                                        except Exception as e:
+                                                print(f"other error: {e}")
+                                                lcd.clear()
+                                                lcd.cursor_pos = (0, 0)
+                                                lcd.write_string("Error")
+
+                                time.sleep(0.1)
+
+        except KeyboardInterrupt:
+                print("Program terminated by user")
+        finally:
+                lcd.clear()
+                lcd.close()
+                GPIO.cleanup()
+
+if __name__ == "__main__":
+        main()
