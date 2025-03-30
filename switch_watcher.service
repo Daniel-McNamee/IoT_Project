@@ -1,0 +1,20 @@
+[Unit]
+Description=GPIO Switch Watcher for Terrarium Monitor Service
+# Start after basic system is up
+After=multi-user.target
+
+[Service]
+Type=simple
+# IMPORTANT: Run as root to execute systemctl commands
+User=root
+# The command to run the watcher script
+ExecStart=/usr/bin/python3 /home/DanDev/switch_watcher.py
+# Restart if it crashes
+Restart=on-failure
+RestartSec=5
+# Log output to journald
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
