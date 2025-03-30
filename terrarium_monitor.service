@@ -1,0 +1,25 @@
+[Unit]
+Description=Terrarium Temperature and Humidity Monitor Service
+After=multi-user.target
+
+[Service]
+Type=simple
+# Username
+User=DanDev
+
+# The directory where the script is located (Home directory)
+WorkingDirectory=/home/DanDev
+
+# The command to run: full path to virtual environment python + full path to script
+ExecStart=/home/DanDev/temp_humidity_env/bin/python /home/DanDev/terrarium_monitor.py
+
+# Restart settings
+Restart=on-failure
+RestartSec=5
+
+# Logging to systemd journal
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
