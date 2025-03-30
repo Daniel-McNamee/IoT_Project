@@ -174,6 +174,16 @@ if __name__ == "__main__":
                 print(f"Error during DHT cleanup: {e}")
 
         if lcd:
+        try:
+                print("Displaying shutdown message on LCD...")
+                lcd.clear() # Clear any previous message first
+                lcd.cursor_pos = (0, 0) # Go to first line
+                lcd.write_string("Shutting down...")
+                time.sleep(2) # Delay for 2 seconds
+            except Exception as lcd_shutdown_msg_error:
+                # Log if the shutdown message fails, but proceed with cleanup
+                print(f"Warning: Could not display shutdown message on LCD: {lcd_shutdo>
+
             try:
                 lcd.clear()
                 lcd.backlight_enabled = False # Turn off backlight
