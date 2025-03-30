@@ -10,7 +10,7 @@ SWITCH_PIN = board.D21
 # Set PULL_DIRECTION based on the wiring:
 # - digitalio.Pull.DOWN if switch connects pin to 3.3V when ON
 # - digitalio.Pull.UP if switch connects pin to GND when ON
-PULL_DIRECTION = digitalio.Pull.DOWN
+PULL_DIRECTION = digitalio.Pull.UP
 
 switch = None
 
