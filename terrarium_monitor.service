@@ -21,5 +21,8 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 
+#Timeout to provide time for cleanup and shutdown message to display on reboot
+TimeoutStopSec=10
+
 [Install]
 WantedBy=multi-user.target
