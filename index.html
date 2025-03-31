@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Landing Page</title> 
+    <!-- Links to CSS/JS later -->
+</head>
+<body>
+    <h1>Terrarium Monitor Dashboard</h1>
+    <p>Loading data...</p>
+    <!-- Graph will go here -->
+
+    <h2>Latest Readings (API Test)</h2>
+    <pre id="latest-data"></pre>
+
+    <!-- Basic script to fetch and display test data -->
+    <script>
+        fetch('/api/readings/latest')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('latest-data').textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(error => {
+                console.error('Error fetching latest readings:', error);
+                document.getElementById('latest-data').textContent = 'Error loading data.';
+            });
+    </script>
+</body>
+</html>
