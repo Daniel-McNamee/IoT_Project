@@ -316,7 +316,6 @@ if __name__ == "__main__":
              print("Warning: Database connection failed on startup. Logging disabled.")
 
         critical_init_ok = True # Reached here means sensor is okay
-        global last_db_log_time
         last_db_log_time = time.monotonic() # Set initial time for DB logging interval
 
     except Exception as init_err:
