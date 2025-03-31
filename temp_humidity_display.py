@@ -57,3 +57,4 @@ if __name__ == "__main__":
         print("Program terminated by user")
         lcd.clear()
         lcd.close()
+
