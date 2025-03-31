@@ -1,0 +1,8 @@
+Moved all required libraries to venv "temp_humidity_env"
+Combined previous scripts into one "terrarium_monitor.py"
+Created "terrarium_monitor.service" to run automatically on boot-up
+Created "switch-watcher.py" to add a power switch to my project (Re-imagined code and wiring)
+Created "test_switch.py" to test simpler script in effort to get switch-watcher.py to work properly
+Added further debugging to "switch-watcher.py"
+Created "switch-watcher.service" to run automatically on boot-up and check for switch state.
+Installed mariadb-server and setup a database
