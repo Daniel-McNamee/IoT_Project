@@ -3,19 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Landing Page</title> 
-    <!-- Links to CSS/JS later -->
+    <title>{{ title }}</title>
+    <!-- Link to CSS later -->
+    <!-- Include Chart.js library from CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        /* Basic styling for the chart container */
+        .chart-container {
+            width: 80%; 
+            max-width: 900px;
+            margin: 20px auto; /* Center the chart */
+        }
+    </style>
 </head>
 <body>
     <h1>Terrarium Monitor Dashboard</h1>
-    <p>Loading data...</p>
-    <!-- Graph will go here -->
 
+    <!-- Canvas element for the chart -->
+    <div class="chart-container">
+        <canvas id="sensorChart"></canvas>
+    </div>
+
+    <!-- Previous Code keeping the latest readings display for testing purposes -->
     <h2>Latest Readings (API Test)</h2>
-    <pre id="latest-data"></pre>
-
-    <!-- Basic script to fetch and display test data -->
+    <pre id="latest-data">Loading...</pre>
+    
     <script>
+        // Fetch raw latest data
         fetch('/api/readings/latest')
             .then(response => response.json())
             .then(data => {
@@ -23,8 +37,104 @@
             })
             .catch(error => {
                 console.error('Error fetching latest readings:', error);
-                document.getElementById('latest-data').textContent = 'Error loading data.';
+                document.getElementById('latest-data').textContent = 'Error loading latest data.';
             });
+
+        // --- New Charting Code ---
+        const ctx = document.getElementById('sensorChart').getContext('2d');
+        let sensorChart; // Variable to hold the chart instance
+
+        function updateChart() {
+            fetch('/api/chartdata/recent') // Fetch from the NEW endpoint
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (!data || !data.labels || !data.temperatures || !data.humidities) {
+                        console.error("Received invalid data format for chart:", data);
+                        return; // Don't try to chart invalid data
+                    }
+
+                    // If chart already exists, update its data and redraw
+                    if (sensorChart) {
+                        sensorChart.data.labels = data.labels;
+                        sensorChart.data.datasets[0].data = data.temperatures; // First dataset is temp
+                        sensorChart.data.datasets[1].data = data.humidities;  // Second dataset is humidity
+                        sensorChart.update();
+                        console.log("Chart updated with new data.");
+                    } else {
+                        // Create new chart instance
+                        sensorChart = new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: data.labels, // Timestamps
+                                datasets: [
+                                    {
+                                        label: 'Temperature (°C)',
+                                        data: data.temperatures,
+                                        borderColor: 'rgb(255, 99, 132)', // Red
+                                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
+                                        yAxisID: 'yTemp', // Assign to temperature axis
+                                        tension: 0.1 // Slightly smooth line
+                                    },
+                                    {
+                                        label: 'Humidity (%)',
+                                        data: data.humidities,
+                                        borderColor: 'rgb(54, 162, 235)', // Blue
+                                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                                        yAxisID: 'yHumid', // Assign to humidity axis
+                                        tension: 0.1
+                                    }
+                                ]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: true,
+                                scales: {
+                                    x: {
+                                        title: { display: true, text: 'Time' }
+                                        // Add time formatting options later
+                                    },
+                                    yTemp: { // Temperature Y-axis
+                                        type: 'linear',
+                                        position: 'left',
+                                        title: { display: true, text: 'Temperature (°C)' },
+                                        suggestedMin: 15, // Adjusts ranges
+                                        suggestedMax: 35
+                                    },
+                                    yHumid: { // Humidity Y-axis
+                                        type: 'linear',
+                                        position: 'right',
+                                        title: { display: true, text: 'Humidity (%)' },
+                                        suggestedMin: 30,
+                                        suggestedMax: 90,
+                                        // Ensure grid lines don't overlap
+                                        grid: { drawOnChartArea: false }
+                                    }
+                                },
+                                plugins: {
+                                     legend: { position: 'top' },
+                                     title: { display: true, text: 'Recent Terrarium Readings' }
+                                 }
+                            }
+                        });
+                        console.log("Chart created.");
+                    }
+                })
+                .catch(error => {
+                    console.error('Error fetching or processing chart data:', error);
+                });
+        }
+
+        // Initial chart load
+        updateChart();
+
+        // Refresh chart data every minute (60000 milliseconds)
+        setInterval(updateChart, 60000);
+
     </script>
 </body>
 </html>
