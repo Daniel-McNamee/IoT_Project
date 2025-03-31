@@ -52,3 +52,5 @@ Query OK, 0 rows affected (0.011 sec)
 
 MariaDB [terrarium_data]> EXIT;
 Bye)
+
+installed Flask to venv "temp_humidity_env"
