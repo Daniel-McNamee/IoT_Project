@@ -54,3 +54,10 @@ MariaDB [terrarium_data]> EXIT;
 Bye)
 
 installed Flask to venv "temp_humidity_env"
+Made directory "terrarium_webapp"
+Made directory "template"
+Made directory "static"
+Created terrarium_webapp/app.py
+Created terrarium_webapp/template/index.html
+
+// Next create app.service
