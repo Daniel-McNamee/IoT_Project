@@ -1,0 +1,23 @@
+[Unit]
+Description=Gunicorn instance to serve Terrarium Webapp
+# Wait for the network stack to be fully up and the database service
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+User=DanDev
+Group=DanDev
+WorkingDirectory=/home/DanDev/terrarium_webapp
+
+# Path to Gunicorn executable inside the virtual environment
+# app:app: Tells Gunicorn to load the 'app' object from the 'app.py' module
+ExecStart=/home/DanDev/temp_humidity_env/bin/gunicorn --workers 9 --bind 0.0.0.0:5000 app:app
+
+Restart=on-failure
+RestartSec=10
+
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
