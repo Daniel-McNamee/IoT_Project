@@ -7,22 +7,57 @@
     <!-- Link to CSS later -->
     <!-- Include Chart.js library from CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Include Flatpickr library from CDN -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
     <style>
+
         /* Basic styling for the chart container */
         .chart-container {
             width: 90%;
             max-width: 1000px;
             margin: 20px auto; /* Center the chart */
         }
+
         .controls {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 10px; /* Adjusted margin */
         }
+
         .controls label {
             margin: 0 10px;
         }
+
+        /* Styling for custom date selector */
+        #customDateSelector {
+             margin-top: 10px;
+             padding: 10px;
+             border: 1px solid #eee;
+             border-radius: 5px;
+             display: inline-block; /* Keep it centered */
+         }
+
+         #customDateSelector label {
+             margin-right: 5px;
+         }
+
+         #flatpickrInput {
+             padding: 5px 8px;
+             border: 1px solid #ccc;
+             border-radius: 4px;
+         }
+
+         /* Styling for loading indicator */
+         #loadingIndicator {
+             margin: 15px;
+             font-weight: bold;
+             color: #555;
+         }
+
     </style>
 </head>
+
 <body>
     <h1>Terrarium Monitor Dashboard</h1>
 
@@ -35,12 +70,25 @@
             <option value="day">Today</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
+            <option value="custom">Custom Range...</option> <!-- Added Custom Option -->
         </select>
 
         <label for="autoRefreshCheckbox">
             <input type="checkbox" id="autoRefreshCheckbox" checked> Auto-Refresh (1 min)
         </label>
     </div>
+
+    <!-- Hidden container for the custom date selector -->
+    <div id="customDateSelector" style="display: none; text-align: center;">
+        <label for="flatpickrInput">Select Range:</label>
+        <input type="text" id="flatpickrInput" placeholder="Click to select date range...">
+        <!-- Consider adding an Apply button here later -->
+    </div>
+
+     <!-- Loading Indicator -->
+     <div id="loadingIndicator" style="display: none; text-align: center;">
+         Loading chart data...
+     </div>
 
     <!-- Canvas element for the chart -->
     <div class="chart-container">
@@ -67,17 +115,78 @@
         const ctx = document.getElementById('sensorChart').getContext('2d');
         const timeRangeSelect = document.getElementById('timeRangeSelect');
         const autoRefreshCheckbox = document.getElementById('autoRefreshCheckbox');
+        const customDateSelector = document.getElementById('customDateSelector'); // Ref to container
+        const flatpickrInput = document.getElementById('flatpickrInput'); // Ref to input
+        const loadingIndicator = document.getElementById('loadingIndicator'); // Ref to loading indicator
 
         let sensorChart; // Variable to hold the chart instance
         let currentRange = timeRangeSelect.value; // Store the currently selected range
         let refreshIntervalId = null; // To store the interval ID for clearing later
         const REFRESH_INTERVAL_MS = 60000; // 1 minute
 
+        // Store selected custom dates
+        let selectedStartDate = null;
+        let selectedEndDate = null;
+
+        // --- Initialize Flatpickr ---
+        const fp = flatpickr(flatpickrInput, {
+            mode: "range",
+            dateFormat: "Y-m-d", // Match backend (YYYY-MM-DD)
+            maxDate: "today",   // Prevent selecting future dates
+            onChange: function(selectedDates, dateStr, instance) {
+                // This function triggers when dates are selected in the calendar
+                if (selectedDates.length === 2) {
+                    // Store Date objects
+                    selectedStartDate = selectedDates[0];
+                    selectedEndDate = selectedDates[1];
+                    // Format dates as strings for the API call
+                    const startDateStr = selectedStartDate.toISOString().split('T')[0];
+                    const endDateStr = selectedEndDate.toISOString().split('T')[0];
+                    console.log(`Custom range selected via calendar: ${startDateStr} to ${endDateStr}`);
+                    // Trigger chart update when a valid range is selected
+                    // A separate "Apply" button might provide better UX later
+                    updateChart(null, startDateStr, endDateStr); // Pass null for range, provide dates
+                } else {
+                    // Clear dates if selection is incomplete
+                    selectedStartDate = null;
+                    selectedEndDate = null;
+                }
+            }
+        });
+
         // --- Chart Update Function ---
-        function updateChart(range) {
-            console.log(`Fetching chart data for range: ${range}`);
-            // Fetch from the consolidated endpoint, passing the range
-            fetch(`/api/chartdata?range=${range}`)
+        function updateChart(range, startDate, endDate) {
+             let fetchUrl;
+             let isCustomRange = false;
+
+             // Determine the API endpoint and parameters
+             if (startDate && endDate) {
+                 fetchUrl = `/api/chartdata?start_date=${startDate}&end_date=${endDate}`;
+                 console.log(`Fetching custom range: ${startDate} to ${endDate}`);
+                 isCustomRange = true;
+                 // Ensure auto-refresh is off for custom ranges
+                 if (autoRefreshCheckbox.checked) {
+                     autoRefreshCheckbox.checked = false; // Uncheck visually
+                     stopAutoRefresh(); // Stop the interval
+                 }
+                 autoRefreshCheckbox.disabled = true; // Disable checkbox for custom range
+             } else if (range && range !== "custom") {
+                 fetchUrl = `/api/chartdata?range=${range}`;
+                 console.log(`Fetching relative range: ${range}`);
+                 autoRefreshCheckbox.disabled = false; // Re-enable checkbox for relative ranges
+             } else if (range === "custom") {
+                  console.log("Custom range selected, waiting for date input...");
+                  // Don't fetch yet, until dates are selected via calendar
+                  return;
+             }
+              else {
+                 console.error("updateChart called without valid range or dates!");
+                 return; // Exit if no valid parameters
+             }
+
+            loadingIndicator.style.display = 'block'; // Show loading indicator
+
+            fetch(fetchUrl)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -90,16 +199,29 @@
                         return;
                     }
 
-                    // Define chart configuration - makes updates cleaner
+                    // Determine Chart Title
+                    let chartTitleText = '';
+                    if (isCustomRange) {
+                        if (startDate === endDate) { // Check if it's a single day selection
+                             chartTitleText = `Terrarium Readings (${startDate})`;
+                        } else {
+                             chartTitleText = `Terrarium Readings (${startDate} to ${endDate})`;
+                        }
+                    } else { // Relative range
+                        chartTitleText = `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})`;
+                    }
+
+
+                    // Define chart configuration
                     const chartConfig = {
                         type: 'line',
                         data: {
-                            labels: data.labels, // Timestamps
+                            labels: data.labels,
                             datasets: [
                                 {
                                     label: 'Temperature (°C)',
                                     data: data.temperatures,
-                                    borderColor: 'rgb(255, 99, 132)', // Red
+                                    borderColor: 'rgb(255, 99, 132)',
                                     backgroundColor: 'rgba(255, 99, 132, 0.1)',
                                     yAxisID: 'yTemp',
                                     tension: 0.1
@@ -107,7 +229,7 @@
                                 {
                                     label: 'Humidity (%)',
                                     data: data.humidities,
-                                    borderColor: 'rgb(54, 162, 235)', // Blue
+                                    borderColor: 'rgb(54, 162, 235)',
                                     backgroundColor: 'rgba(54, 162, 235, 0.1)',
                                     yAxisID: 'yHumid',
                                     tension: 0.1
@@ -118,21 +240,20 @@
                             responsive: true,
                             maintainAspectRatio: true,
                             animation: {
-                                duration: 0.2 
+                                duration: 200 // Slight animation for updates
                             },
                             scales: {
                                 x: {
                                     title: { display: true, text: 'Time' },
                                     ticks: {
-                                        autoSkip: true, // Automatically skip labels if too many
-                                        maxTicksLimit: 20 // Limit ticks to avoid clutter
+                                        autoSkip: true,
+                                        maxTicksLimit: 20 // Adjust based on testing
                                     }
                                 },
                                 yTemp: {
                                     type: 'linear',
                                     position: 'left',
                                     title: { display: true, text: 'Temperature (°C)' },
-                                    // Consider making min/max dynamic
                                     suggestedMin: 10,
                                     suggestedMax: 35
                                 },
@@ -147,52 +268,79 @@
                             },
                             plugins: {
                                  legend: { position: 'top' },
-                                 title: { display: true, text: `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})` } // Dynamic title
+                                 title: { display: true, text: chartTitleText } // Use dynamic title
                              }
                         }
                     };
 
-
-                    // If chart already exists, update its data and options
+                    // Update or create chart
                     if (sensorChart) {
                         sensorChart.data.labels = data.labels;
                         sensorChart.data.datasets[0].data = data.temperatures;
                         sensorChart.data.datasets[1].data = data.humidities;
-                        // Update title dynamically
-                        sensorChart.options.plugins.title.text = `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})`;
-                        sensorChart.update(); // Use default animation or specify duration: 0
-                        console.log(`Chart updated for range: ${range}. Points: ${data.labels.length}`);
+                        sensorChart.options.plugins.title.text = chartTitleText; // Update title
+                        sensorChart.update();
+                        console.log(`Chart updated. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}`);
                     } else {
-                        // Create new chart instance
                         sensorChart = new Chart(ctx, chartConfig);
-                        console.log(`Chart created for range: ${range}. Points: ${data.labels.length}`);
+                        console.log(`Chart created. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}`);
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching or processing chart data:', error);
+                    if (sensorChart) { // Try to update title even on error
+                         sensorChart.options.plugins.title.text = 'Error loading data';
+                         sensorChart.update();
+                    }
+                })
+                .finally(() => {
+                    loadingIndicator.style.display = 'none'; // Hide loading indicator
                 });
         }
 
-        // --- Event Listener for Time Range Change ---
+        // --- Event Listener for Time Range Dropdown Change ---
         timeRangeSelect.addEventListener('change', (event) => {
-            currentRange = event.target.value; // Update the current range
-            updateChart(currentRange); // Fetch and display data for the new range
-             // When range changes, immediately update, don't wait for interval
-            stopAutoRefresh(); // Stop existing refresh if any
-            startAutoRefresh(); // Restart refresh if checkbox is checked
+            currentRange = event.target.value;
+            stopAutoRefresh(); // Always stop refresh when changing selection
+
+            if (currentRange === "custom") {
+                customDateSelector.style.display = 'block'; // Show calendar input container
+                autoRefreshCheckbox.checked = false; // Ensure unchecked
+                autoRefreshCheckbox.disabled = true;  // Disable checkbox
+                // Don't update chart immediately, wait for date selection via Flatpickr's onChange
+                 if (sensorChart) { // Update title to prompt user
+                     sensorChart.options.plugins.title.text = 'Select Custom Date Range';
+                     sensorChart.update('none'); // Update without animation
+                 }
+                 // Open the calendar automatically
+                 fp.open();
+            } else {
+                customDateSelector.style.display = 'none'; // Hide calendar input container
+                autoRefreshCheckbox.disabled = false; // Re-enable checkbox
+                selectedStartDate = null; // Clear any stored custom dates
+                selectedEndDate = null;
+                fp.clear(); // Clear dates from the flatpickr input visually
+                updateChart(currentRange, null, null); // Update chart with the selected relative range
+                // Start refresh only if checkbox is still checked (user might have unchecked it)
+                startAutoRefresh();
+            }
         });
 
         // --- Auto-Refresh Logic ---
         function startAutoRefresh() {
-            // Only start if checkbox is checked and no interval is already running
-            if (autoRefreshCheckbox.checked && refreshIntervalId === null) {
+            if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) {
                 console.log("Starting auto-refresh...");
                 refreshIntervalId = setInterval(() => {
-                    // Use the *currently selected* range for refresh
-                    updateChart(currentRange);
+                    // Only refresh if not in custom mode; use currentRange
+                     if (currentRange !== "custom") {
+                         updateChart(currentRange, null, null);
+                     } else {
+                         // Should not happen, but stop just in case
+                         stopAutoRefresh();
+                     }
                 }, REFRESH_INTERVAL_MS);
-            } else if (!autoRefreshCheckbox.checked) {
-                 console.log("Auto-refresh disabled.");
+            } else if (!autoRefreshCheckbox.checked || autoRefreshCheckbox.disabled) {
+                 console.log("Auto-refresh not starting (disabled or unchecked).");
             } else {
                  console.log("Auto-refresh already running.");
             }
@@ -206,18 +354,21 @@
             }
         }
 
-        // Event Listener for Auto-Refresh Checkbox
+        // Event Listener for Auto-Refresh Checkbox Change
         autoRefreshCheckbox.addEventListener('change', () => {
             if (autoRefreshCheckbox.checked) {
-                startAutoRefresh();
+                // Only start if not disabled
+                if (!autoRefreshCheckbox.disabled) {
+                    startAutoRefresh();
+                }
             } else {
                 stopAutoRefresh();
             }
         });
 
         // --- Initial Load ---
-        updateChart(currentRange); // Initial chart load with default range
-        startAutoRefresh(); // Start auto-refresh if checkbox is initially checked
+        updateChart(currentRange, null, null); // Initial chart load with default range ("Last Hour")
+        startAutoRefresh(); // Start auto-refresh if checkbox is initially checked (and not disabled)
 
     </script>
 </body>
