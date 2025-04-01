@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
+
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
@@ -10,6 +11,8 @@
     <!-- Include Flatpickr library from CDN -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <!-- Include Chart.js Annotation Plugin -->
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
     <style>
 
@@ -19,16 +22,13 @@
             max-width: 1000px;
             margin: 20px auto; /* Center the chart */
         }
-
         .controls {
             text-align: center;
             margin-bottom: 10px; /* Adjusted margin */
         }
-
         .controls label {
             margin: 0 10px;
         }
-
         /* Styling for custom date selector */
         #customDateSelector {
              margin-top: 10px;
@@ -37,24 +37,25 @@
              border-radius: 5px;
              display: inline-block; /* Keep it centered */
          }
-
          #customDateSelector label {
              margin-right: 5px;
          }
-
          #flatpickrInput {
              padding: 5px 8px;
              border: 1px solid #ccc;
              border-radius: 4px;
          }
-
          /* Styling for loading indicator */
          #loadingIndicator {
              margin: 15px;
              font-weight: bold;
              color: #555;
          }
-
+         /* Basic tooltip styling */
+         .chartjs-tooltip {
+             background: rgba(0, 0, 0, 0.7); */
+             color: white;
+         }
     </style>
 </head>
 
@@ -70,7 +71,7 @@
             <option value="day">Today</option>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
-            <option value="custom">Custom Range...</option> <!-- Added Custom Option -->
+            <option value="custom">Custom Range...</option>
         </select>
 
         <label for="autoRefreshCheckbox">
@@ -82,7 +83,6 @@
     <div id="customDateSelector" style="display: none; text-align: center;">
         <label for="flatpickrInput">Select Range:</label>
         <input type="text" id="flatpickrInput" placeholder="Click to select date range...">
-        <!-- Consider adding an Apply button here later -->
     </div>
 
      <!-- Loading Indicator -->
@@ -115,39 +115,33 @@
         const ctx = document.getElementById('sensorChart').getContext('2d');
         const timeRangeSelect = document.getElementById('timeRangeSelect');
         const autoRefreshCheckbox = document.getElementById('autoRefreshCheckbox');
-        const customDateSelector = document.getElementById('customDateSelector'); // Ref to container
-        const flatpickrInput = document.getElementById('flatpickrInput'); // Ref to input
-        const loadingIndicator = document.getElementById('loadingIndicator'); // Ref to loading indicator
+        const customDateSelector = document.getElementById('customDateSelector');
+        const flatpickrInput = document.getElementById('flatpickrInput');
+        const loadingIndicator = document.getElementById('loadingIndicator');
 
-        let sensorChart; // Variable to hold the chart instance
-        let currentRange = timeRangeSelect.value; // Store the currently selected range
-        let refreshIntervalId = null; // To store the interval ID for clearing later
-        const REFRESH_INTERVAL_MS = 60000; // 1 minute
+        let sensorChart;
+        let currentRange = timeRangeSelect.value;
+        let refreshIntervalId = null;
+        const REFRESH_INTERVAL_MS = 60000;
 
-        // Store selected custom dates
         let selectedStartDate = null;
         let selectedEndDate = null;
+        let currentGaps = []; // Store gap info
 
         // --- Initialize Flatpickr ---
         const fp = flatpickr(flatpickrInput, {
             mode: "range",
-            dateFormat: "Y-m-d", // Match backend (YYYY-MM-DD)
-            maxDate: "today",   // Prevent selecting future dates
+            dateFormat: "Y-m-d",
+            maxDate: "today",
             onChange: function(selectedDates, dateStr, instance) {
-                // This function triggers when dates are selected in the calendar
                 if (selectedDates.length === 2) {
-                    // Store Date objects
                     selectedStartDate = selectedDates[0];
                     selectedEndDate = selectedDates[1];
-                    // Format dates as strings for the API call
                     const startDateStr = selectedStartDate.toISOString().split('T')[0];
                     const endDateStr = selectedEndDate.toISOString().split('T')[0];
                     console.log(`Custom range selected via calendar: ${startDateStr} to ${endDateStr}`);
-                    // Trigger chart update when a valid range is selected
-                    // A separate "Apply" button might provide better UX later
-                    updateChart(null, startDateStr, endDateStr); // Pass null for range, provide dates
+                    updateChart(null, startDateStr, endDateStr);
                 } else {
-                    // Clear dates if selection is incomplete
                     selectedStartDate = null;
                     selectedEndDate = null;
                 }
@@ -159,58 +153,87 @@
              let fetchUrl;
              let isCustomRange = false;
 
-             // Determine the API endpoint and parameters
              if (startDate && endDate) {
                  fetchUrl = `/api/chartdata?start_date=${startDate}&end_date=${endDate}`;
                  console.log(`Fetching custom range: ${startDate} to ${endDate}`);
                  isCustomRange = true;
-                 // Ensure auto-refresh is off for custom ranges
                  if (autoRefreshCheckbox.checked) {
-                     autoRefreshCheckbox.checked = false; // Uncheck visually
-                     stopAutoRefresh(); // Stop the interval
+                     autoRefreshCheckbox.checked = false;
+                     stopAutoRefresh();
                  }
-                 autoRefreshCheckbox.disabled = true; // Disable checkbox for custom range
+                 autoRefreshCheckbox.disabled = true;
              } else if (range && range !== "custom") {
                  fetchUrl = `/api/chartdata?range=${range}`;
                  console.log(`Fetching relative range: ${range}`);
-                 autoRefreshCheckbox.disabled = false; // Re-enable checkbox for relative ranges
+                 autoRefreshCheckbox.disabled = false;
+                 currentGaps = []; // Clear gaps for relative ranges
              } else if (range === "custom") {
                   console.log("Custom range selected, waiting for date input...");
-                  // Don't fetch yet, until dates are selected via calendar
                   return;
-             }
-              else {
+             } else {
                  console.error("updateChart called without valid range or dates!");
-                 return; // Exit if no valid parameters
+                 return;
              }
 
-            loadingIndicator.style.display = 'block'; // Show loading indicator
+            loadingIndicator.style.display = 'block';
 
             fetch(fetchUrl)
                 .then(response => {
                     if (!response.ok) {
-                        throw new Error(`HTTP error! status: ${response.status}`);
+                         // Try to parse error JSON from backend
+                         return response.json().then(errData => {
+                             throw new Error(`HTTP error! status: ${response.status}, message: ${errData.error || 'Unknown error'}`);
+                         }).catch(() => {
+                             // Fallback if error response is not JSON
+                             throw new Error(`HTTP error! status: ${response.status}`);
+                         });
                     }
                     return response.json();
                 })
                 .then(data => {
+                    // Validation of received data structure
                     if (!data || !data.labels || !data.temperatures || !data.humidities) {
                         console.error("Received invalid data format for chart:", data);
+                        currentGaps = []; // Clear gaps on error
+                        // Display error to user on the chart
+                        if (sensorChart) {
+                             sensorChart.options.plugins.title.text = 'Error: Invalid data received';
+                             sensorChart.data.labels = [];
+                             sensorChart.data.datasets[0].data = [];
+                             sensorChart.data.datasets[1].data = [];
+                             sensorChart.update();
+                        }
                         return;
                     }
+
+                    // Store gap info for tooltips
+                    currentGaps = data.gaps || [];
 
                     // Determine Chart Title
                     let chartTitleText = '';
                     if (isCustomRange) {
-                        if (startDate === endDate) { // Check if it's a single day selection
-                             chartTitleText = `Terrarium Readings (${startDate})`;
-                        } else {
-                             chartTitleText = `Terrarium Readings (${startDate} to ${endDate})`;
-                        }
-                    } else { // Relative range
+                        chartTitleText = startDate === endDate
+                            ? `Terrarium Readings (${startDate})`
+                            : `Terrarium Readings (${startDate} to ${endDate})`;
+                    } else {
                         chartTitleText = `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})`;
                     }
 
+                    // --- Generate Annotations from Gaps ---
+                    const annotations = currentGaps.map(gap => ({
+                        type: 'box',
+                        // Use the labels provided by the backend which flank the gap
+                        xMin: gap.start,
+                        xMax: gap.end,
+                        backgroundColor: 'rgba(200, 200, 200, 0.3)', // Light grey transparent background
+                        borderColor: 'rgba(180, 180, 180, 0.4)',
+                        borderWidth: 1,
+                        label: { // Add a label to the annotation box itself
+                             display: false, // Keep it clean for now, can enable later
+                             content: 'No Data',
+                             position: 'center'
+                         }
+                    }));
 
                     // Define chart configuration
                     const chartConfig = {
@@ -240,14 +263,14 @@
                             responsive: true,
                             maintainAspectRatio: true,
                             animation: {
-                                duration: 200 // Slight animation for updates
+                                duration: 200
                             },
                             scales: {
                                 x: {
                                     title: { display: true, text: 'Time' },
                                     ticks: {
                                         autoSkip: true,
-                                        maxTicksLimit: 20 // Adjust based on testing
+                                        maxTicksLimit: 20
                                     }
                                 },
                                 yTemp: {
@@ -268,60 +291,108 @@
                             },
                             plugins: {
                                  legend: { position: 'top' },
-                                 title: { display: true, text: chartTitleText } // Use dynamic title
+                                 title: { display: true, text: chartTitleText },
+                                 // --- Annotation Plugin Configuration ---
+                                 annotation: {
+                                     annotations: annotations // Assign generated annotations
+                                 },
+                                 // --- Tooltip Configuration ---
+                                 tooltip: {
+                                     callbacks: {
+                                         // Add extra info after the default label (like Temp/Humidity)
+                                         afterLabel: function(context) {
+                                             // context.label is the X-axis label (e.g., "2023-10-27 15:30")
+                                             // context.dataIndex is the index in the data array
+                                             const currentLabel = context.label;
+                                             let gapMessage = null;
+
+                                             // Check if the previous point was the start of a gap ending at the current point
+                                             if (context.dataIndex > 0) {
+                                                 const prevLabel = context.chart.data.labels[context.dataIndex - 1];
+                                                 for (const gap of currentGaps) {
+                                                     // Check if the previous label matches gap start and current label matches gap end
+                                                     if (gap.start === prevLabel && gap.end === currentLabel) {
+                                                         gapMessage = 'No readings during prior gap';
+                                                         break; // Found the relevant gap
+                                                     }
+                                                 }
+                                             }
+                                             return gapMessage; // Return the message or null
+                                         }
+                                     }
+                                 }
                              }
                         }
                     };
 
                     // Update or create chart
                     if (sensorChart) {
+                        // Update data and annotation options
                         sensorChart.data.labels = data.labels;
                         sensorChart.data.datasets[0].data = data.temperatures;
                         sensorChart.data.datasets[1].data = data.humidities;
-                        sensorChart.options.plugins.title.text = chartTitleText; // Update title
+                        sensorChart.options.plugins.title.text = chartTitleText;
+                        sensorChart.options.plugins.annotation.annotations = annotations;
                         sensorChart.update();
-                        console.log(`Chart updated. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}`);
+                        console.log(`Chart updated. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}. Gaps: ${currentGaps.length}`);
                     } else {
+                        // Ensure Chart.register(Annotation) is called if auto-registration doesn't work
+                         if (window.ChartAnnotation) { // Check if plugin is loaded
+                             console.log("Annotation plugin registered.");
+                         } else {
+                            console.warn("Annotation plugin might not be registered!");
+                         }
                         sensorChart = new Chart(ctx, chartConfig);
-                        console.log(`Chart created. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}`);
+                        console.log(`Chart created. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}. Gaps: ${currentGaps.length}`);
                     }
                 })
                 .catch(error => {
                     console.error('Error fetching or processing chart data:', error);
-                    if (sensorChart) { // Try to update title even on error
-                         sensorChart.options.plugins.title.text = 'Error loading data';
+                    currentGaps = []; // Clear gaps on error
+                    // Display error message to user
+                    if (sensorChart) {
+                         sensorChart.options.plugins.title.text = `Error: ${error.message || 'Failed to load data'}`;
+                         sensorChart.data.labels = [];
+                         sensorChart.data.datasets[0].data = [];
+                         sensorChart.data.datasets[1].data = [];
+                         // Clear annotations on error
+                         sensorChart.options.plugins.annotation.annotations = [];
                          sensorChart.update();
+                    } else {
+                        // If chart doesn't exist yet, maybe update a status div
+                        loadingIndicator.textContent = `Error: ${error.message || 'Failed to load data'}`;
+                        loadingIndicator.style.display = 'block'; // Ensure it's visible
                     }
                 })
                 .finally(() => {
-                    loadingIndicator.style.display = 'none'; // Hide loading indicator
+                     // Hide loading indicator unless it's displaying an error from the catch block above
+                     if (!loadingIndicator.textContent.startsWith("Error:")) {
+                        loadingIndicator.style.display = 'none';
+                     }
                 });
         }
 
         // --- Event Listener for Time Range Dropdown Change ---
         timeRangeSelect.addEventListener('change', (event) => {
             currentRange = event.target.value;
-            stopAutoRefresh(); // Always stop refresh when changing selection
+            stopAutoRefresh();
 
             if (currentRange === "custom") {
-                customDateSelector.style.display = 'block'; // Show calendar input container
-                autoRefreshCheckbox.checked = false; // Ensure unchecked
-                autoRefreshCheckbox.disabled = true;  // Disable checkbox
-                // Don't update chart immediately, wait for date selection via Flatpickr's onChange
-                 if (sensorChart) { // Update title to prompt user
+                customDateSelector.style.display = 'block';
+                autoRefreshCheckbox.checked = false;
+                autoRefreshCheckbox.disabled = true;
+                 if (sensorChart) {
                      sensorChart.options.plugins.title.text = 'Select Custom Date Range';
-                     sensorChart.update('none'); // Update without animation
+                     sensorChart.update('none');
                  }
-                 // Open the calendar automatically
                  fp.open();
             } else {
-                customDateSelector.style.display = 'none'; // Hide calendar input container
-                autoRefreshCheckbox.disabled = false; // Re-enable checkbox
-                selectedStartDate = null; // Clear any stored custom dates
+                customDateSelector.style.display = 'none';
+                autoRefreshCheckbox.disabled = false;
+                selectedStartDate = null;
                 selectedEndDate = null;
-                fp.clear(); // Clear dates from the flatpickr input visually
-                updateChart(currentRange, null, null); // Update chart with the selected relative range
-                // Start refresh only if checkbox is still checked (user might have unchecked it)
+                fp.clear();
+                updateChart(currentRange, null, null); // Will clear gaps array
                 startAutoRefresh();
             }
         });
@@ -331,11 +402,9 @@
             if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) {
                 console.log("Starting auto-refresh...");
                 refreshIntervalId = setInterval(() => {
-                    // Only refresh if not in custom mode; use currentRange
                      if (currentRange !== "custom") {
                          updateChart(currentRange, null, null);
                      } else {
-                         // Should not happen, but stop just in case
                          stopAutoRefresh();
                      }
                 }, REFRESH_INTERVAL_MS);
@@ -357,7 +426,6 @@
         // Event Listener for Auto-Refresh Checkbox Change
         autoRefreshCheckbox.addEventListener('change', () => {
             if (autoRefreshCheckbox.checked) {
-                // Only start if not disabled
                 if (!autoRefreshCheckbox.disabled) {
                     startAutoRefresh();
                 }
@@ -367,8 +435,8 @@
         });
 
         // --- Initial Load ---
-        updateChart(currentRange, null, null); // Initial chart load with default range ("Last Hour")
-        startAutoRefresh(); // Start auto-refresh if checkbox is initially checked (and not disabled)
+        updateChart(currentRange, null, null);
+        startAutoRefresh();
 
     </script>
 </body>
