@@ -10,26 +10,49 @@
     <style>
         /* Basic styling for the chart container */
         .chart-container {
-            width: 80%; 
-            max-width: 900px;
+            width: 90%;
+            max-width: 1000px;
             margin: 20px auto; /* Center the chart */
+        }
+        .controls {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        .controls label {
+            margin: 0 10px;
         }
     </style>
 </head>
 <body>
     <h1>Terrarium Monitor Dashboard</h1>
 
+    <!-- Controls for Time Range and Auto-Refresh -->
+    <div class="controls">
+        <label for="timeRangeSelect">Time Range:</label>
+        <select id="timeRangeSelect">
+            <option value="hour" selected>Last Hour</option>
+            <option value="8hour">Last 8 Hours</option>
+            <option value="day">Today</option>
+            <option value="week">This Week</option>
+            <option value="month">This Month</option>
+        </select>
+
+        <label for="autoRefreshCheckbox">
+            <input type="checkbox" id="autoRefreshCheckbox" checked> Auto-Refresh (1 min)
+        </label>
+    </div>
+
     <!-- Canvas element for the chart -->
     <div class="chart-container">
         <canvas id="sensorChart"></canvas>
     </div>
 
-    <!-- Previous Code keeping the latest readings display for testing purposes -->
+    <!-- Keeping the latest readings display for testing purposes -->
     <h2>Latest Readings (API Test)</h2>
     <pre id="latest-data">Loading...</pre>
-    
+
     <script>
-        // Fetch raw latest data
+        // Fetch raw latest data (keep for testing)
         fetch('/api/readings/latest')
             .then(response => response.json())
             .then(data => {
@@ -40,12 +63,21 @@
                 document.getElementById('latest-data').textContent = 'Error loading latest data.';
             });
 
-        // --- New Charting Code ---
+        // --- Charting Code ---
         const ctx = document.getElementById('sensorChart').getContext('2d');
-        let sensorChart; // Variable to hold the chart instance
+        const timeRangeSelect = document.getElementById('timeRangeSelect');
+        const autoRefreshCheckbox = document.getElementById('autoRefreshCheckbox');
 
-        function updateChart() {
-            fetch('/api/chartdata/recent') // Fetch from the NEW endpoint
+        let sensorChart; // Variable to hold the chart instance
+        let currentRange = timeRangeSelect.value; // Store the currently selected range
+        let refreshIntervalId = null; // To store the interval ID for clearing later
+        const REFRESH_INTERVAL_MS = 60000; // 1 minute
+
+        // --- Chart Update Function ---
+        function updateChart(range) {
+            console.log(`Fetching chart data for range: ${range}`);
+            // Fetch from the consolidated endpoint, passing the range
+            fetch(`/api/chartdata?range=${range}`)
                 .then(response => {
                     if (!response.ok) {
                         throw new Error(`HTTP error! status: ${response.status}`);
@@ -55,73 +87,85 @@
                 .then(data => {
                     if (!data || !data.labels || !data.temperatures || !data.humidities) {
                         console.error("Received invalid data format for chart:", data);
-                        return; // Don't try to chart invalid data
+                        return;
                     }
 
-                    // If chart already exists, update its data and redraw
-                    if (sensorChart) {
-                        sensorChart.data.labels = data.labels;
-                        sensorChart.data.datasets[0].data = data.temperatures; // First dataset is temp
-                        sensorChart.data.datasets[1].data = data.humidities;  // Second dataset is humidity
-                        sensorChart.update();
-                        console.log("Chart updated with new data.");
-                    } else {
-                        // Create new chart instance
-                        sensorChart = new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: data.labels, // Timestamps
-                                datasets: [
-                                    {
-                                        label: 'Temperature (°C)',
-                                        data: data.temperatures,
-                                        borderColor: 'rgb(255, 99, 132)', // Red
-                                        backgroundColor: 'rgba(255, 99, 132, 0.5)',
-                                        yAxisID: 'yTemp', // Assign to temperature axis
-                                        tension: 0.1 // Slightly smooth line
-                                    },
-                                    {
-                                        label: 'Humidity (%)',
-                                        data: data.humidities,
-                                        borderColor: 'rgb(54, 162, 235)', // Blue
-                                        backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                                        yAxisID: 'yHumid', // Assign to humidity axis
-                                        tension: 0.1
-                                    }
-                                ]
+                    // Define chart configuration - makes updates cleaner
+                    const chartConfig = {
+                        type: 'line',
+                        data: {
+                            labels: data.labels, // Timestamps
+                            datasets: [
+                                {
+                                    label: 'Temperature (°C)',
+                                    data: data.temperatures,
+                                    borderColor: 'rgb(255, 99, 132)', // Red
+                                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                    yAxisID: 'yTemp',
+                                    tension: 0.1
+                                },
+                                {
+                                    label: 'Humidity (%)',
+                                    data: data.humidities,
+                                    borderColor: 'rgb(54, 162, 235)', // Blue
+                                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                    yAxisID: 'yHumid',
+                                    tension: 0.1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: true,
+                            animation: {
+                                duration: 0.2 
                             },
-                            options: {
-                                responsive: true,
-                                maintainAspectRatio: true,
-                                scales: {
-                                    x: {
-                                        title: { display: true, text: 'Time' }
-                                        // Add time formatting options later
-                                    },
-                                    yTemp: { // Temperature Y-axis
-                                        type: 'linear',
-                                        position: 'left',
-                                        title: { display: true, text: 'Temperature (°C)' },
-                                        suggestedMin: 15, // Adjusts ranges
-                                        suggestedMax: 35
-                                    },
-                                    yHumid: { // Humidity Y-axis
-                                        type: 'linear',
-                                        position: 'right',
-                                        title: { display: true, text: 'Humidity (%)' },
-                                        suggestedMin: 30,
-                                        suggestedMax: 90,
-                                        // Ensure grid lines don't overlap
-                                        grid: { drawOnChartArea: false }
+                            scales: {
+                                x: {
+                                    title: { display: true, text: 'Time' },
+                                    ticks: {
+                                        autoSkip: true, // Automatically skip labels if too many
+                                        maxTicksLimit: 20 // Limit ticks to avoid clutter
                                     }
                                 },
-                                plugins: {
-                                     legend: { position: 'top' },
-                                     title: { display: true, text: 'Recent Terrarium Readings' }
-                                 }
-                            }
-                        });
-                        console.log("Chart created.");
+                                yTemp: {
+                                    type: 'linear',
+                                    position: 'left',
+                                    title: { display: true, text: 'Temperature (°C)' },
+                                    // Consider making min/max dynamic
+                                    suggestedMin: 10,
+                                    suggestedMax: 35
+                                },
+                                yHumid: {
+                                    type: 'linear',
+                                    position: 'right',
+                                    title: { display: true, text: 'Humidity (%)' },
+                                    suggestedMin: 0,
+                                    suggestedMax: 100,
+                                    grid: { drawOnChartArea: false }
+                                }
+                            },
+                            plugins: {
+                                 legend: { position: 'top' },
+                                 title: { display: true, text: `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})` } // Dynamic title
+                             }
+                        }
+                    };
+
+
+                    // If chart already exists, update its data and options
+                    if (sensorChart) {
+                        sensorChart.data.labels = data.labels;
+                        sensorChart.data.datasets[0].data = data.temperatures;
+                        sensorChart.data.datasets[1].data = data.humidities;
+                        // Update title dynamically
+                        sensorChart.options.plugins.title.text = `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})`;
+                        sensorChart.update(); // Use default animation or specify duration: 0
+                        console.log(`Chart updated for range: ${range}. Points: ${data.labels.length}`);
+                    } else {
+                        // Create new chart instance
+                        sensorChart = new Chart(ctx, chartConfig);
+                        console.log(`Chart created for range: ${range}. Points: ${data.labels.length}`);
                     }
                 })
                 .catch(error => {
@@ -129,11 +173,51 @@
                 });
         }
 
-        // Initial chart load
-        updateChart();
+        // --- Event Listener for Time Range Change ---
+        timeRangeSelect.addEventListener('change', (event) => {
+            currentRange = event.target.value; // Update the current range
+            updateChart(currentRange); // Fetch and display data for the new range
+             // When range changes, immediately update, don't wait for interval
+            stopAutoRefresh(); // Stop existing refresh if any
+            startAutoRefresh(); // Restart refresh if checkbox is checked
+        });
 
-        // Refresh chart data every minute (60000 milliseconds)
-        setInterval(updateChart, 60000);
+        // --- Auto-Refresh Logic ---
+        function startAutoRefresh() {
+            // Only start if checkbox is checked and no interval is already running
+            if (autoRefreshCheckbox.checked && refreshIntervalId === null) {
+                console.log("Starting auto-refresh...");
+                refreshIntervalId = setInterval(() => {
+                    // Use the *currently selected* range for refresh
+                    updateChart(currentRange);
+                }, REFRESH_INTERVAL_MS);
+            } else if (!autoRefreshCheckbox.checked) {
+                 console.log("Auto-refresh disabled.");
+            } else {
+                 console.log("Auto-refresh already running.");
+            }
+        }
+
+        function stopAutoRefresh() {
+            if (refreshIntervalId !== null) {
+                console.log("Stopping auto-refresh...");
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
+            }
+        }
+
+        // Event Listener for Auto-Refresh Checkbox
+        autoRefreshCheckbox.addEventListener('change', () => {
+            if (autoRefreshCheckbox.checked) {
+                startAutoRefresh();
+            } else {
+                stopAutoRefresh();
+            }
+        });
+
+        // --- Initial Load ---
+        updateChart(currentRange); // Initial chart load with default range
+        startAutoRefresh(); // Start auto-refresh if checkbox is initially checked
 
     </script>
 </body>
