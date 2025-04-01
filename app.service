@@ -1,0 +1,28 @@
+[Unit]
+Description=Terrarium Web Application Service (Flask)
+# Wait for the network stack to be fully up and the database service
+After=network-online.target mariadb.service
+Wants=network-online.target
+
+[Service]
+# User to run the service as
+User=DanDev
+
+# The directory where app.py is located
+WorkingDirectory=/home/DanDev/terrarium_webapp
+
+# The command to run the Flask app
+# IMPORTANT: Use the Python interpreter from the same virtual environment
+ExecStart=/home/DanDev/temp_humidity_env/bin/python /home/DanDev/terrarium_webapp/app.py
+
+# Restart the service if it fails
+Restart=on-failure
+RestartSec=10
+
+# Where to send standard output and standard error
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+# Start the service during the normal multi-user boot process
+WantedBy=multi-user.target
