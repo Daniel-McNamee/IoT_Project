@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Meta Information -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="User Login/Registration for Terrarium Monitor">
+    <meta name="Keywords" content="terrarium, monitor, login, registration, user account, authentication">
+
+    <!-- External Style Sheets -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login-reg.css') }}">
+
+    <!-- Page Title -->
+    <title>Login and Registration - Terrarium Monitor</title>
+
+    <!-- Font and Icon Links -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@10..48,200;10..48,300;10..48,400;10..48,500;10..48,600;10..48,700;10..48,800&family=IBM+Plex+Mono:wght@100;200;300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons|Material+Icons+Outlined|Material+Icons+Round|Material+Icons+Sharp|Material+Icons+Two+Tone" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Close Screen / Back to Landing Page -->
+    <a href="{{ url_for('index') }}">
+        <button class="closeMenu">×</button>
+    </a>
+
+    <!-- Wrapper Start -->
+    <div class="wrapper">
+
+        <!-- Form Header: Titles for Login/Register -->
+        <div class="form-header">
+            <div class="titles">
+                <div class="title-login">Login</div>
+                <div class="title-register">Register</div>
+                <div class="title-forgot">Forgot Password</div>
+            </div>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <form class="login-form" autocomplete="off">
+            <!-- Email Input -->
+            <div class="input-box">
+                <input type="email" class="input-field" id="log-email" name="email" required> 
+                <label for="log-email" class="label">Email</label>
+                <i class='bx bx-envelope icon'></i>
+            </div>
+
+            <!-- Password Input (with Checkbox for Show/Hide) -->
+            <div class="input-box">
+                <input type="checkbox" name="checkbox" id="show-password-log">
+                <div class="password">
+                    <div class="back"></div>
+                    <input type="password" id="password" name="password" placeholder="Password" required>
+                    <label for="show-password-log"></label>
+                </div>
+            </div>
+
+            <!-- Forgot Password Link -->
+            <div class="form-cols">
+                <div class="col-1"></div>
+                <div class="col-2">
+                    <a href="#">Forgot password?</a> <!-- JS handles click -->
+                </div>
+            </div>
+
+            <!-- Sign In Button -->
+            <div class="input-box">
+                <button type="submit" class="btn-submit" id="SignInBtn">Sign In <i class='bx bx-log-in'></i></button>
+            </div>
+
+            <!-- Switch to Register Form -->
+            <div class="switch-form">
+                <span>Don't have an account? <a href="#" onclick="registerFunction()">Register</a></span>
+            </div>
+        </form>
+
+        <!-- FORGOT PASSWORD FORM -->
+        <form class="forgot-password-form" autocomplete="off">
+            <!-- Step 1: Email Input -->
+            <div class="forgot-step" id="forgot-step-1">
+                <div class="input-box">
+                    <input type="email" class="input-field" id="forgot-email" name="email" required>
+                    <label for="forgot-email" class="label">Email</label>
+                    <i class='bx bx-envelope icon'></i>
+                </div>
+                <div class="input-box">
+                    <button type="button" class="btn-submit" id="verifyEmailBtn">Verify Email <i class='bx bx-envelope-open'></i></button>
+                </div>
+            </div>
+
+            <!-- Step 2: Security Question -->
+            <div class="forgot-step" id="forgot-step-2" style="display: none;">
+                <div class="security-question-display">
+                    <h4>Security Question:</h4>
+                    <p id="security-question-text"></p>
+                </div>
+                <div class="input-box">
+                    <input type="text" class="input-field" id="forgot-answer" name="security_answer" required>
+                    <label for="forgot-answer" class="label">Your Answer</label>
+                    <i class='bx bx-shield icon'></i>
+                </div>
+                <div class="input-box">
+                    <button type="button" class="btn-submit" id="verifyAnswerBtn">Verify Answer <i class='bx bx-check-shield'></i></button>
+                </div>
+            </div>
+
+            <!-- Step 3: New Password -->
+            <div class="forgot-step" id="forgot-step-3" style="display: none;">
+                <div class="input-box">
+                    <input type="checkbox" name="" id="show-password-forgot">
+                    <div class="password">
+                        <div class="back"></div>
+                        <input type="password" id="new-password" name="new_password" placeholder="New Password" required>
+                        <label for="show-password-forgot"></label>
+                    </div>
+                </div>
+                <div class="input-box">
+                    <button type="button" class="btn-submit" id="resetPasswordBtn">Reset Password <i class='bx bx-lock-open'></i></button>
+                </div>
+            </div>
+
+            <!-- Return to Login Form -->
+            <div class="switch-form">
+                <span><a href="#" onclick="loginFunction()">Back to Login</a></span>
+            </div>
+        </form>
+
+        <!-- REGISTER FORM -->
+        <form class="register-form" autocomplete="off">
+            <!-- Username Input -->
+            <div class="input-box">
+                <input type="text" class="input-field" id="reg-name" name="name" required>
+                <label for="reg-name" class="label">Username</label>
+                <i class='bx bx-user icon'></i>
+            </div>
+
+            <!-- Email Input -->
+            <div class="input-box">
+                <input type="email" class="input-field" id="reg-email" name="email" required>
+                <label for="reg-email" class="label">Email</label>
+                <i class='bx bx-envelope icon'></i>
+            </div>
+
+            <!-- Password Input (with Checkbox for Show/Hide) -->
+            <div class="input-box">
+                <input type="checkbox" name="" id="show-password-reg">
+                <div class="password">
+                    <div class="back"></div>
+                    <input type="password" id="password-reg" name="password" placeholder="Password" required>
+                    <label for="show-password-reg"></label>
+                </div>
+            </div>
+
+            <!-- Security Question Section -->
+            <div class="input-box">
+                <select class="input-field security-select" id="security-question" name="security_question" required>
+                    <option value="" disabled selected>Select a security question</option>
+                    <option value="pet">What was your first pet's name?</option>
+                    <option value="school">What was the name of your first school?</option>
+                    <option value="city">What city were you born in?</option>
+                    <option value="maiden">What was your mother's maiden name?</option>
+                </select>
+                <i class='bx bx-lock-alt icon'></i>
+            </div>
+
+            <div class="input-box">
+                <input type="text" class="input-field" id="security-answer" name="security_answer" required>
+                <label for="security-answer" class="label">Security Answer</label>
+                <i class='bx bx-shield icon'></i>
+            </div>
+
+            <!-- Terms & Conditions Checkbox -->
+            <div class="form-cols">
+                <div class="col-1">
+                    <input type="checkbox" id="agree" required>
+                    <label for="agree"> I agree to </label>
+                    <a href="#" id="openTermsModal" class="terms-button">terms & conditions</a>
+                </div>
+                <div class="col-2"></div>
+            </div>
+
+            <!-- Sign Up Button -->
+            <div class="input-box">
+                <button type="submit" class="btn-submit" id="SignUpBtn">Sign Up <i class='bx bx-user-plus'></i></button>
+            </div>
+
+            <!-- Switch to Login Form -->
+            <div class="switch-form">
+                <span>Already have an account? <a href="#" onclick="loginFunction()">Login</a></span>
+            </div>
+        </form>
+
+    </div> <!-- End Wrapper -->
+
+    <!-- Terms & Conditions Modal -->
+    <div id="termsModal" class="terms-modal-hidden">
+        <div class="terms-modal-overlay">
+            <div class="terms-modal-container">
+                <div class="terms-modal-header">
+                    <h2>Terms and Conditions</h2>
+                    <button id="closeTermsModal" class="terms-modal-close">×</button>
+                </div>
+                <div class="terms-modal-body">
+                    <!-- TERMS TEXT -->
+                    <p>This website is developed as part of an educational
+                        student project for college coursework and is provided on an 'as is' basis. Users acknowledge and accept that
+                        they access and use this site at their own risk. <br> <br> Welcome to our website. If you continue to browse and use this website, you are agreeing to comply with and be
+                        bound by the following terms and conditions of use.</p>
+
+                    <h3>1. Terms of Use</h3>
+                    <p>The content of the pages of this website is for your general information and use only. It is subject to change without notice. Neither we nor any third parties provide any warranty or guarantee as to the accuracy, timeliness, performance, completeness or suitability of the information and materials found or offered on this website for any particular purpose. You acknowledge that such information and materials may contain inaccuracies or errors and we expressly exclude liability for any such inaccuracies or errors to the fullest extent permitted by law.</p>
+
+                    <h3>2. Privacy Policy</h3>
+                    <p>Your use of this website is subject to our Privacy Policy, which governs how we collect, use, and disclose your information. Please review our Privacy Policy. We are committed to protecting your personal data in accordance with applicable data protection laws.</p>
+
+                    <h3>3. User Account</h3>
+                    <p>When you create an account with us, you must provide information that is accurate, complete, and current at all times. Failure to do so constitutes a breach of the Terms, which may result in immediate termination of your account on our Service. You are responsible for safeguarding the password that you use to access the Service and for any activities or actions under your password, whether your password is with our Service or a third-party service.</p>
+
+                    <h3>4. Prohibited Activities</h3>
+                    <p>You agree not to use the Service: (a) for any unlawful purpose; (b) to solicit others to perform or participate in any unlawful acts; (c) to violate any international, federal, provincial or state regulations, rules, laws, or local ordinances; (d) to infringe upon or violate our intellectual property rights or the intellectual property rights of others; (e) to harass, abuse, insult, harm, defame, slander, disparage, intimidate, or discriminate based on gender, sexual orientation, religion, ethnicity, race, age, national origin, or disability; (f) to submit false or misleading information; (g) to upload or transmit viruses or any other type of malicious code that will or may be used in any way that will affect the functionality or operation of the Service or of any related website, other websites, or the Internet; (h) to collect or track the personal information of others; (i) to spam, phish, pharm, pretext, spider, crawl, or scrape; (j) for any obscene or immoral purpose; or (k) to interfere with or circumvent the security features of the Service or any related website, other websites, or the Internet. We reserve the right to terminate your use of the Service or any related website for violating any of the prohibited uses.</p>
+
+                    <h3>5. Termination</h3>
+                    <p>We may terminate or suspend your account immediately, without prior notice or liability, for any reason whatsoever, including without limitation if you breach the Terms. Upon termination, your right to use the Service will immediately cease. If you wish to terminate your account, you may simply discontinue using the Service.</p>
+
+                    <h3>6. Limitations of Liability</h3>
+                    <p>In no event shall the project developers, nor its directors, employees, partners, agents, suppliers, or affiliates, be liable for any indirect, incidental, special, consequential or punitive damages, including without limitation, loss of profits, data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of or inability to access or use the Service; (ii) any conduct or content of any third party on the Service; (iii) any content obtained from the Service; and (iv) unauthorized access, use or alteration of your transmissions or content, whether based on warranty, contract, tort (including negligence) or any other legal theory, whether or not we have been informed of the possibility of such damage, and even if a remedy set forth herein is found to have failed of its essential purpose. As this is an educational project, the Service is provided 'as-is' without warranties of any kind.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- External JavaScript -->
+    <script src="{{ url_for('static', filename='js/login-reg.js') }}"></script>
+
+    <!-- Internal JavaScript for initial session check/redirect -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            fetch('/api/session-check')
+                .then(response => {
+                    if (!response.ok) {
+                        console.error(`Session check failed! Status: ${response.status}`);
+                        return { logged_in: false }; // Assume logged out
+                    }
+                    return response.json();
+                 })
+                .then(data => {
+                    console.log('Login status on /login page load:', data);
+                    if (data.logged_in) {
+                        console.log('User already logged in, redirecting to index...');
+                        // Redirect immediately if logged in
+                        window.location.href = "{{ url_for('index') }}";
+                    }
+                    // If not logged in, do nothing, page loads normally
+                })
+                .catch(error => {
+                    console.error('Error checking initial login status on /login page:', error);
+                    // Assume logged out if fetch fails
+                });
+        });
+    </script>
+
+</body>
+</html>
