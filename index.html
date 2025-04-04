@@ -4,73 +4,62 @@
 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{{ title }}</title>
-    <!-- Link to CSS later -->
-    <!-- Include Chart.js library from CDN -->
+    <title>Terrarium Monitor Dashboard</title>
+    <!-- Chart.js -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Include Flatpickr library from CDN -->
+    <!-- Flatpickr -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <!-- Include Chart.js Annotation Plugin -->
+    <!-- Annotation Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
 
     <style>
-
-        /* Basic styling for the chart container */
-        .chart-container {
-            width: 90%;
-            max-width: 1000px;
-            margin: 20px auto; /* Center the chart */
-        }
-        .controls {
-            text-align: center;
-            margin-bottom: 10px; /* Adjusted margin */
-        }
-        .controls label {
-            margin: 0 10px;
-        }
-        /* Styling for custom date selector */
-        #customDateSelector {
-             margin-top: 10px;
-             padding: 10px;
-             border: 1px solid #eee;
-             border-radius: 5px;
-             display: inline-block; /* Keep it centered */
-         }
-         #customDateSelector label {
-             margin-right: 5px;
-         }
-         #flatpickrInput {
-             padding: 5px 8px;
-             border: 1px solid #ccc;
-             border-radius: 4px;
-         }
-         /* Styling for loading indicator */
-         #loadingIndicator {
-             margin: 15px;
-             font-weight: bold;
-             color: #555;
-         }
-         /* Basic tooltip styling */
-         .chartjs-tooltip {
-             background: rgba(0, 0, 0, 0.7); */
-             color: white;
-         }
+        body { background-color: skyblue; margin: 0; font-family: sans-serif; }
+        #user-auth-section { text-align: right; padding: 10px 20px; background-color: #e0e0e0; border-bottom: 1px solid #cccccc; margin-bottom: 15px; font-size: 0.9em; }
+        #user-auth-section span { font-weight: bold; margin-right: 5px; }
+        #user-auth-section a { text-decoration: none; color: #337ab7; }
+        #user-auth-section a:hover { text-decoration: underline; }
+        h1 { text-align: center; margin-top: 20px; margin-bottom: 15px; }
+        h2 { text-align: center; margin-top: 30px; margin-bottom: 10px; font-size: 1.2em; }
+        .chart-container { width: 90%; max-width: 1000px; margin: 20px auto; background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .controls { text-align: center; margin-bottom: 20px; padding: 10px; background-color: #f8f8f8; border-radius: 5px;}
+        .controls label { margin: 0 10px; font-weight: bold; }
+        .controls select, .controls input[type="checkbox"] { margin-left: 5px; vertical-align: middle;}
+        #customDateSelector { margin-top: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px; display: inline-block; background-color: #f8f8f8;}
+        #customDateSelector label { margin-right: 5px; }
+        #flatpickrInput { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; }
+        #applyCustomRangeBtn { margin-left: 10px; padding: 6px 12px; cursor: pointer; border: 1px solid #aaa; border-radius: 4px; background-color: #f0f0f0; }
+        #applyCustomRangeBtn:hover { background-color: #e0e0e0; }
+        #applyCustomRangeBtn:disabled { cursor: not-allowed; opacity: 0.6; }
+        #loadingIndicator { text-align: center; margin: 15px; font-weight: bold; color: #555; }
+        #latest-data { width: 90%; max-width: 1000px; margin: 10px auto 30px auto; background-color: #f5f5f5; border: 1px solid #ddd; padding: 15px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto; border-radius: 5px; }
     </style>
+
 </head>
 
 <body>
+
+    <!-- Login/Logout Link and User Info -->
+    <div id="user-auth-section">
+        <a href="{{ url_for('login_page') }}">Login / Register</a>
+    </div>
+
     <h1>Terrarium Monitor Dashboard</h1>
 
-    <!-- Controls for Time Range and Auto-Refresh -->
+    <!-- Controls -->
     <div class="controls">
         <label for="timeRangeSelect">Time Range:</label>
         <select id="timeRangeSelect">
-            <option value="hour" selected>Last Hour</option>
-            <option value="8hour">Last 8 Hours</option>
-            <option value="day">Today</option>
-            <option value="week">This Week</option>
-            <option value="month">This Month</option>
+            <option value="hour" selected>Last Hour (5 min avg)</option>
+            <option value="8hour">Last 8 Hours (5 min avg)</option>
+            <option value="last24h">Last 24 Hours (5 min avg)</option>
+            <option value="past7d">Past 7 Days (30 min avg)</option>
+            <option value="past31d">Past 31 Days (Hourly avg)</option>
+            <option value="past365d">Past 365 Days (Daily avg)</option>
+            <option value="day">Today (5 min avg)</option>
+            <option value="week">This Week (Mon-Sun, 30 min avg)</option>
+            <option value="month">This Month (30 min avg)</option>
+            <option value="year">This Year (Daily avg)</option>
             <option value="custom">Custom Range...</option>
         </select>
 
@@ -79,365 +68,378 @@
         </label>
     </div>
 
-    <!-- Hidden container for the custom date selector -->
+    <!-- Custom Date Selector -->
     <div id="customDateSelector" style="display: none; text-align: center;">
         <label for="flatpickrInput">Select Range:</label>
         <input type="text" id="flatpickrInput" placeholder="Click to select date range...">
+        <button id="applyCustomRangeBtn" disabled>Apply</button>
     </div>
 
      <!-- Loading Indicator -->
-     <div id="loadingIndicator" style="display: none; text-align: center;">
+     <div id="loadingIndicator" style="display: none;">
          Loading chart data...
      </div>
 
-    <!-- Canvas element for the chart -->
+    <!-- Chart Canvas -->
     <div class="chart-container">
         <canvas id="sensorChart"></canvas>
     </div>
 
-    <!-- Keeping the latest readings display for testing purposes -->
+    <!-- Latest Readings Test Data -->
     <h2>Latest Readings (API Test)</h2>
     <pre id="latest-data">Loading...</pre>
 
+    <!-- JavaScript for chart functionality -->
     <script>
-        // Fetch raw latest data (keep for testing)
+        // --- Charting Code ---
+        console.log("Chart script starting.");
+
+        // Fetch latest readings
         fetch('/api/readings/latest')
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('latest-data').textContent = JSON.stringify(data, null, 2);
+            .then(response => {
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return response.json();
             })
-            .catch(error => {
-                console.error('Error fetching latest readings:', error);
-                document.getElementById('latest-data').textContent = 'Error loading latest data.';
+            .then(data => {
+                const preElement = document.getElementById('latest-data');
+                if(preElement) preElement.textContent = JSON.stringify(data, null, 2);
+            })
+            .catch(e => {
+                console.error('Error fetching latest readings:', e);
+                const preElement = document.getElementById('latest-data');
+                if(preElement) preElement.textContent = `Error loading latest data: ${e.message}`;
             });
 
-        // --- Charting Code ---
-        const ctx = document.getElementById('sensorChart').getContext('2d');
+        // Chart.js setup
+        const ctx = document.getElementById('sensorChart');
         const timeRangeSelect = document.getElementById('timeRangeSelect');
         const autoRefreshCheckbox = document.getElementById('autoRefreshCheckbox');
         const customDateSelector = document.getElementById('customDateSelector');
         const flatpickrInput = document.getElementById('flatpickrInput');
         const loadingIndicator = document.getElementById('loadingIndicator');
-
+        const applyCustomRangeBtn = document.getElementById('applyCustomRangeBtn');
         let sensorChart;
-        let currentRange = timeRangeSelect.value;
+        let currentRange = timeRangeSelect ? timeRangeSelect.value : 'hour';
         let refreshIntervalId = null;
         const REFRESH_INTERVAL_MS = 60000;
-
         let selectedStartDate = null;
         let selectedEndDate = null;
-        let currentGaps = []; // Store gap info
+        let flatpickrInstance = null;
 
-        // --- Initialize Flatpickr ---
-        const fp = flatpickr(flatpickrInput, {
-            mode: "range",
-            dateFormat: "Y-m-d",
-            maxDate: "today",
-            onChange: function(selectedDates, dateStr, instance) {
-                if (selectedDates.length === 2) {
-                    selectedStartDate = selectedDates[0];
-                    selectedEndDate = selectedDates[1];
+        // Initialize Flatpickr
+        if (flatpickrInput) {
+             flatpickrInstance = flatpickr(flatpickrInput, {
+                mode: "range",
+                dateFormat: "Y-m-d",
+                maxDate: "today",
+                onChange: function(selectedDates, dateStr, instance) {
+                    if (selectedDates.length === 2) {
+                        selectedStartDate = selectedDates[0];
+                        selectedEndDate = selectedDates[1];
+                        if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = false;
+                        console.log(`Custom range staged: ${selectedStartDate.toISOString().split('T')[0]} to ${selectedEndDate.toISOString().split('T')[0]}`);
+                    } else {
+                        selectedStartDate = null;
+                        selectedEndDate = null;
+                         if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
+                    }
+                },
+                onClose: function(selectedDates, dateStr, instance) {
+                    if (!selectedStartDate || !selectedEndDate) {
+                        console.log("Flatpickr closed without selecting a valid range.");
+                    }
+                }
+            });
+        } else { console.error("Flatpickr input element not found."); }
+
+        // Apply Button Listener
+        if (applyCustomRangeBtn) {
+            applyCustomRangeBtn.addEventListener('click', () => {
+                if (selectedStartDate && selectedEndDate) {
                     const startDateStr = selectedStartDate.toISOString().split('T')[0];
                     const endDateStr = selectedEndDate.toISOString().split('T')[0];
-                    console.log(`Custom range selected via calendar: ${startDateStr} to ${endDateStr}`);
+                    console.log(`Applying custom range: ${startDateStr} to ${endDateStr}`);
+                    stopAutoRefresh();
+                    if(autoRefreshCheckbox) autoRefreshCheckbox.checked = false;
                     updateChart(null, startDateStr, endDateStr);
                 } else {
-                    selectedStartDate = null;
-                    selectedEndDate = null;
+                    console.warn("Apply button clicked, but no valid date range is selected.");
                 }
-            }
-        });
+            });
+        } else { console.error("Apply custom range button not found."); }
 
-        // --- Chart Update Function ---
+        // updateChart function
         function updateChart(range, startDate, endDate) {
              let fetchUrl;
              let isCustomRange = false;
+             console.log(`updateChart called with range: ${range}, startDate: ${startDate}, endDate: ${endDate}`);
 
+             if(loadingIndicator) loadingIndicator.style.display = 'block';
+
+             // Determine fetch URL based on parameters
              if (startDate && endDate) {
                  fetchUrl = `/api/chartdata?start_date=${startDate}&end_date=${endDate}`;
                  console.log(`Fetching custom range: ${startDate} to ${endDate}`);
                  isCustomRange = true;
-                 if (autoRefreshCheckbox.checked) {
-                     autoRefreshCheckbox.checked = false;
-                     stopAutoRefresh();
-                 }
-                 autoRefreshCheckbox.disabled = true;
+                 if (autoRefreshCheckbox) {
+                      autoRefreshCheckbox.checked = false;
+                      autoRefreshCheckbox.disabled = true;
+                  }
+                 stopAutoRefresh();
              } else if (range && range !== "custom") {
                  fetchUrl = `/api/chartdata?range=${range}`;
                  console.log(`Fetching relative range: ${range}`);
-                 autoRefreshCheckbox.disabled = false;
-                 currentGaps = []; // Clear gaps for relative ranges
+                  if (autoRefreshCheckbox) autoRefreshCheckbox.disabled = false;
+                  if (autoRefreshCheckbox && autoRefreshCheckbox.checked) {
+                     startAutoRefresh();
+                  } else {
+                     stopAutoRefresh();
+                  }
              } else if (range === "custom") {
-                  console.log("Custom range selected, waiting for date input...");
+                 // Handle 'Custom Range' selection from dropdown
+                 console.log("Custom range selected, showing date picker.");
+                  if (customDateSelector) customDateSelector.style.display = 'block';
+                  if (applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
+                  if (autoRefreshCheckbox) {
+                      autoRefreshCheckbox.checked = false;
+                      autoRefreshCheckbox.disabled = true;
+                  }
+                  stopAutoRefresh();
+                  if (flatpickrInstance) flatpickrInstance.open();
+                  // Clear chart or show message while waiting for date selection
+                  if (sensorChart) {
+                      sensorChart.options.plugins.title.text = 'Select Date Range and Click Apply';
+                      sensorChart.data.labels = [];
+                      sensorChart.data.datasets[0].data = [];
+                      sensorChart.data.datasets[1].data = [];
+                      if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = []; // Clear annotations too
+                      sensorChart.update('none');
+                  }
+                  if(loadingIndicator) loadingIndicator.style.display = 'none';
                   return;
              } else {
-                 console.error("updateChart called without valid range or dates!");
-                 return;
+                 console.error("updateChart called without valid parameters!");
+                  if(loadingIndicator) loadingIndicator.style.display = 'none';
+                  return;
              }
 
-            loadingIndicator.style.display = 'block';
+             // Fetch data from the determined URL
+             fetch(fetchUrl)
+                 .then(response => { // Handle response status and errors
+                     if (!response.ok) {
+                          if (response.status === 401) {
+                             console.warn('Authentication required for chart data. Redirecting to login.');
+                             window.location.href = '/login';
+                             throw new Error('Authentication required.');
+                          }
+                          return response.json().then(errData => {
+                              throw new Error(`HTTP error! status: ${response.status}, message: ${errData.error || 'Unknown server error'}`);
+                          }).catch(() => { // Catch if error response wasn't JSON
+                              throw new Error(`HTTP error! status: ${response.status}`);
+                          });
+                      }
+                      return response.json(); // Parse JSON if response is good
+                  })
+                 .then(data => { // Process the received chart data
+                     // Basic validation of the data structure
+                     if (!data || typeof data !== 'object' || !Array.isArray(data.labels) || !Array.isArray(data.temperatures) || !Array.isArray(data.humidities)) {
+                         console.error("Received invalid data format from API:", data);
+                         throw new Error('Invalid data format received from server.');
+                     }
 
-            fetch(fetchUrl)
-                .then(response => {
-                    if (!response.ok) {
-                         // Try to parse error JSON from backend
-                         return response.json().then(errData => {
-                             throw new Error(`HTTP error! status: ${response.status}, message: ${errData.error || 'Unknown error'}`);
-                         }).catch(() => {
-                             // Fallback if error response is not JSON
-                             throw new Error(`HTTP error! status: ${response.status}`);
-                         });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    // Validation of received data structure
-                    if (!data || !data.labels || !data.temperatures || !data.humidities) {
-                        console.error("Received invalid data format for chart:", data);
-                        currentGaps = []; // Clear gaps on error
-                        // Display error to user on the chart
-                        if (sensorChart) {
-                             sensorChart.options.plugins.title.text = 'Error: Invalid data received';
-                             sensorChart.data.labels = [];
-                             sensorChart.data.datasets[0].data = [];
-                             sensorChart.data.datasets[1].data = [];
-                             sensorChart.update();
-                        }
-                        return;
-                    }
+                     // Process gaps for annotations (ensure gaps is an array)
+                     const receivedGaps = Array.isArray(data.gaps) ? data.gaps : [];
+                     let chartTitleText = ''; // Determine chart title
 
-                    // Store gap info for tooltips
-                    currentGaps = data.gaps || [];
+                      if (isCustomRange) {
+                          const startDisplay = selectedStartDate ? selectedStartDate.toLocaleDateString() : 'N/A';
+                          const endDisplay = selectedEndDate ? selectedEndDate.toLocaleDateString() : 'N/A';
+                          chartTitleText = startDisplay === endDisplay ? `Readings (${startDisplay})` : `Readings (${startDisplay} to ${endDisplay})`;
+                      } else {
+                          const selectedOption = timeRangeSelect ? Array.from(timeRangeSelect.options).find(opt => opt.value === range) : null;
+                          chartTitleText = `Readings (${selectedOption ? selectedOption.text : (range || 'Current')})`;
+                      }
 
-                    // Determine Chart Title
-                    let chartTitleText = '';
-                    if (isCustomRange) {
-                        chartTitleText = startDate === endDate
-                            ? `Terrarium Readings (${startDate})`
-                            : `Terrarium Readings (${startDate} to ${endDate})`;
-                    } else {
-                        chartTitleText = `Terrarium Readings (${timeRangeSelect.options[timeRangeSelect.selectedIndex].text})`;
-                    }
+                     // Create annotations if plugin is registered
+                     const annotations = (Chart.registry.plugins.get('annotation')) ? receivedGaps.map(gap => ({
+                             type: 'box',
+                             xMin: gap.start, xMax: gap.end,
+                             backgroundColor: 'rgba(200, 200, 200, 0.3)', borderColor: 'rgba(180, 180, 180, 0.4)', borderWidth: 1,
+                             drawTime: 'beforeDatasetsDraw'
+                         })) : [];
 
-                    // --- Generate Annotations from Gaps ---
-                    const annotations = currentGaps.map(gap => ({
-                        type: 'box',
-                        // Use the labels provided by the backend which flank the gap
-                        xMin: gap.start,
-                        xMax: gap.end,
-                        backgroundColor: 'rgba(200, 200, 200, 0.3)', // Light grey transparent background
-                        borderColor: 'rgba(180, 180, 180, 0.4)',
-                        borderWidth: 1,
-                        label: { // Add a label to the annotation box itself
-                             display: false, // Keep it clean for now, can enable later
-                             content: 'No Data',
-                             position: 'center'
+                      // Define the chart configuration object
+                      const chartConfig = {
+                          type: 'line',
+                          data: {
+                              labels: data.labels,
+                              datasets: [
+                                  {
+                                      label: 'Temperature (°C)', data: data.temperatures,
+                                      borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                                      yAxisID: 'yTemp', tension: 0.1,
+                                      pointRadius: data.labels.length < 100 ? 3 : 0, pointHoverRadius: data.labels.length < 100 ? 5 : 3
+                                  },
+                                  {
+                                      label: 'Humidity (%)', data: data.humidities,
+                                      borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                                      yAxisID: 'yHumid', tension: 0.1,
+                                      pointRadius: data.labels.length < 100 ? 3 : 0, pointHoverRadius: data.labels.length < 100 ? 5 : 3
+                                  }
+                              ]
+                          },
+                          options: {
+                              responsive: true, maintainAspectRatio: true, animation: { duration: 200 },
+                              scales: {
+                                 x: { title: { display: true, text: 'Time' }, ticks: { autoSkip: true, maxTicksLimit: data.labels.length > 100 ? 20 : 40, maxRotation: 45, minRotation: 0 } },
+                                 yTemp: { type: 'linear', position: 'left', title: { display: true, text: 'Temperature (°C)' }, suggestedMin: 10, suggestedMax: 35 },
+                                 yHumid: { type: 'linear', position: 'right', title: { display: true, text: 'Humidity (%)' }, suggestedMin: 0, suggestedMax: 100, grid: { drawOnChartArea: false } }
+                              },
+                              plugins: {
+                                  legend: { position: 'top' },
+                                  title: { display: true, text: chartTitleText },
+                                  // Include annotation options if plugin exists
+                                  annotation: Chart.registry.plugins.get('annotation') ? { annotations: annotations } : {},
+                                  tooltip: {
+                                     mode: 'index', intersect: false,
+                                     callbacks: { label: function(context) { /* tooltip formatting ... */ } }
+                                  }
+                              },
+                              interaction: { mode: 'nearest', axis: 'x', intersect: false }
+                          }
+                      };
+
+                     // Update existing chart or create a new one
+                     if (sensorChart) {
+                         console.log("Updating existing chart.");
+                         sensorChart.data.labels = data.labels;
+                         sensorChart.data.datasets[0].data = data.temperatures;
+                         sensorChart.data.datasets[1].data = data.humidities;
+                         sensorChart.options.plugins.title.text = chartTitleText;
+                         // Update annotations if plugin options exist
+                         if (sensorChart.options.plugins.annotation) {
+                              sensorChart.options.plugins.annotation.annotations = annotations;
                          }
-                    }));
-
-                    // Define chart configuration
-                    const chartConfig = {
-                        type: 'line',
-                        data: {
-                            labels: data.labels,
-                            datasets: [
-                                {
-                                    label: 'Temperature (°C)',
-                                    data: data.temperatures,
-                                    borderColor: 'rgb(255, 99, 132)',
-                                    backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                                    yAxisID: 'yTemp',
-                                    tension: 0.1
-                                },
-                                {
-                                    label: 'Humidity (%)',
-                                    data: data.humidities,
-                                    borderColor: 'rgb(54, 162, 235)',
-                                    backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                                    yAxisID: 'yHumid',
-                                    tension: 0.1
-                                }
-                            ]
-                        },
-                        options: {
-                            responsive: true,
-                            maintainAspectRatio: true,
-                            animation: {
-                                duration: 200
-                            },
-                            scales: {
-                                x: {
-                                    title: { display: true, text: 'Time' },
-                                    ticks: {
-                                        autoSkip: true,
-                                        maxTicksLimit: 20
-                                    }
-                                },
-                                yTemp: {
-                                    type: 'linear',
-                                    position: 'left',
-                                    title: { display: true, text: 'Temperature (°C)' },
-                                    suggestedMin: 10,
-                                    suggestedMax: 35
-                                },
-                                yHumid: {
-                                    type: 'linear',
-                                    position: 'right',
-                                    title: { display: true, text: 'Humidity (%)' },
-                                    suggestedMin: 0,
-                                    suggestedMax: 100,
-                                    grid: { drawOnChartArea: false }
-                                }
-                            },
-                            plugins: {
-                                 legend: { position: 'top' },
-                                 title: { display: true, text: chartTitleText },
-                                 // --- Annotation Plugin Configuration ---
-                                 annotation: {
-                                     annotations: annotations // Assign generated annotations
-                                 },
-                                 // --- Tooltip Configuration ---
-                                 tooltip: {
-                                     callbacks: {
-                                         // Add extra info after the default label (like Temp/Humidity)
-                                         afterLabel: function(context) {
-                                             // context.label is the X-axis label (e.g., "2023-10-27 15:30")
-                                             // context.dataIndex is the index in the data array
-                                             const currentLabel = context.label;
-                                             let gapMessage = null;
-
-                                             // Check if the previous point was the start of a gap ending at the current point
-                                             if (context.dataIndex > 0) {
-                                                 const prevLabel = context.chart.data.labels[context.dataIndex - 1];
-                                                 for (const gap of currentGaps) {
-                                                     // Check if the previous label matches gap start and current label matches gap end
-                                                     if (gap.start === prevLabel && gap.end === currentLabel) {
-                                                         gapMessage = 'No readings during prior gap';
-                                                         break; // Found the relevant gap
-                                                     }
-                                                 }
-                                             }
-                                             return gapMessage; // Return the message or null
-                                         }
-                                     }
-                                 }
-                             }
-                        }
-                    };
-
-                    // Update or create chart
-                    if (sensorChart) {
-                        // Update data and annotation options
-                        sensorChart.data.labels = data.labels;
-                        sensorChart.data.datasets[0].data = data.temperatures;
-                        sensorChart.data.datasets[1].data = data.humidities;
-                        sensorChart.options.plugins.title.text = chartTitleText;
-                        sensorChart.options.plugins.annotation.annotations = annotations;
-                        sensorChart.update();
-                        console.log(`Chart updated. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}. Gaps: ${currentGaps.length}`);
-                    } else {
-                        // Ensure Chart.register(Annotation) is called if auto-registration doesn't work
-                         if (window.ChartAnnotation) { // Check if plugin is loaded
-                             console.log("Annotation plugin registered.");
-                         } else {
-                            console.warn("Annotation plugin might not be registered!");
-                         }
-                        sensorChart = new Chart(ctx, chartConfig);
-                        console.log(`Chart created. Range: ${isCustomRange ? (startDate + ' to ' + endDate) : range}. Points: ${data.labels.length}. Gaps: ${currentGaps.length}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error fetching or processing chart data:', error);
-                    currentGaps = []; // Clear gaps on error
-                    // Display error message to user
-                    if (sensorChart) {
-                         sensorChart.options.plugins.title.text = `Error: ${error.message || 'Failed to load data'}`;
-                         sensorChart.data.labels = [];
-                         sensorChart.data.datasets[0].data = [];
-                         sensorChart.data.datasets[1].data = [];
-                         // Clear annotations on error
-                         sensorChart.options.plugins.annotation.annotations = [];
                          sensorChart.update();
-                    } else {
-                        // If chart doesn't exist yet, maybe update a status div
-                        loadingIndicator.textContent = `Error: ${error.message || 'Failed to load data'}`;
-                        loadingIndicator.style.display = 'block'; // Ensure it's visible
-                    }
-                })
-                .finally(() => {
-                     // Hide loading indicator unless it's displaying an error from the catch block above
-                     if (!loadingIndicator.textContent.startsWith("Error:")) {
-                        loadingIndicator.style.display = 'none';
-                     }
-                });
-        }
-
-        // --- Event Listener for Time Range Dropdown Change ---
-        timeRangeSelect.addEventListener('change', (event) => {
-            currentRange = event.target.value;
-            stopAutoRefresh();
-
-            if (currentRange === "custom") {
-                customDateSelector.style.display = 'block';
-                autoRefreshCheckbox.checked = false;
-                autoRefreshCheckbox.disabled = true;
-                 if (sensorChart) {
-                     sensorChart.options.plugins.title.text = 'Select Custom Date Range';
-                     sensorChart.update('none');
-                 }
-                 fp.open();
-            } else {
-                customDateSelector.style.display = 'none';
-                autoRefreshCheckbox.disabled = false;
-                selectedStartDate = null;
-                selectedEndDate = null;
-                fp.clear();
-                updateChart(currentRange, null, null); // Will clear gaps array
-                startAutoRefresh();
-            }
-        });
-
-        // --- Auto-Refresh Logic ---
-        function startAutoRefresh() {
-            if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) {
-                console.log("Starting auto-refresh...");
-                refreshIntervalId = setInterval(() => {
-                     if (currentRange !== "custom") {
-                         updateChart(currentRange, null, null);
                      } else {
-                         stopAutoRefresh();
+                         console.log("Creating new chart.");
+                         if (ctx) {
+                              sensorChart = new Chart(ctx, chartConfig);
+                         } else {
+                             console.error("Canvas context (ctx) not found, cannot create chart.");
+                             throw new Error("Chart canvas context not available.");
+                         }
                      }
-                }, REFRESH_INTERVAL_MS);
-            } else if (!autoRefreshCheckbox.checked || autoRefreshCheckbox.disabled) {
-                 console.log("Auto-refresh not starting (disabled or unchecked).");
-            } else {
-                 console.log("Auto-refresh already running.");
-            }
+                      console.log(`Chart updated/created. Labels: ${data.labels.length}. Gaps: ${receivedGaps.length}`);
+                 })
+                 .catch(error => { // Handle errors during fetch or processing
+                     console.error('Error fetching/processing chart data:', error);
+                     const errorMsg = `Error: ${error.message || 'Failed to load chart data'}`;
+                     if (sensorChart && sensorChart.options && sensorChart.options.plugins && sensorChart.options.plugins.title) {
+                         sensorChart.options.plugins.title.text = errorMsg;
+                         sensorChart.data.labels = [];
+                         sensorChart.data.datasets.forEach(dataset => dataset.data = []);
+                         if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = [];
+                         sensorChart.update();
+                     } else if (loadingIndicator) {
+                          loadingIndicator.textContent = errorMsg;
+                          loadingIndicator.style.display = 'block';
+                     }
+                 })
+                 .finally(() => { // Always run after fetch completes or fails
+                     // Hide loading indicator unless it's showing an error
+                     if (loadingIndicator && !loadingIndicator.textContent.startsWith("Error:")) {
+                          loadingIndicator.style.display = 'none';
+                          loadingIndicator.textContent = 'Loading chart data...';
+                     }
+                 });
+         }
+
+        // Event Listeners & Auto-Refresh Logic
+        if (timeRangeSelect) { timeRangeSelect.addEventListener('change', (event) => { currentRange = event.target.value; console.log(`Time range selection changed to: ${currentRange}`); stopAutoRefresh(); if(flatpickrInstance) flatpickrInstance.clear(); if(customDateSelector) customDateSelector.style.display = 'none'; updateChart(currentRange, null, null); }); }
+        else { console.error("Time range select element not found."); }
+
+        function startAutoRefresh() { if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) { console.log("Starting auto-refresh..."); refreshIntervalId = setInterval(() => { if (currentRange !== "custom") { console.log("Auto-refreshing chart for range:", currentRange); updateChart(currentRange, null, null); } else { console.warn("Auto-refresh triggered but in custom range mode, stopping."); stopAutoRefresh(); if(autoRefreshCheckbox) autoRefreshCheckbox.checked = false; } }, REFRESH_INTERVAL_MS); } else { console.log("Auto-refresh conditions not met or already running."); } }
+        function stopAutoRefresh() { if (refreshIntervalId !== null) { console.log("Stopping auto-refresh."); clearInterval(refreshIntervalId); refreshIntervalId = null; } }
+
+        if (autoRefreshCheckbox) { autoRefreshCheckbox.addEventListener('change', () => { if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled) { startAutoRefresh(); } else { stopAutoRefresh(); } }); }
+        else { console.error("Auto refresh checkbox not found."); }
+
+        // Initial Load
+        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initializeDashboard); }
+        else { initializeDashboard(); }
+
+        function initializeDashboard() {
+             console.log("Initializing dashboard.");
+             if (!ctx) { console.error("Canvas context not found on init."); if(loadingIndicator) { loadingIndicator.textContent = "Error: Chart canvas not found."; loadingIndicator.style.display = 'block'; } return; }
+             updateChart(currentRange, null, null);
+             if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled) { startAutoRefresh(); }
         }
-
-        function stopAutoRefresh() {
-            if (refreshIntervalId !== null) {
-                console.log("Stopping auto-refresh...");
-                clearInterval(refreshIntervalId);
-                refreshIntervalId = null;
-            }
-        }
-
-        // Event Listener for Auto-Refresh Checkbox Change
-        autoRefreshCheckbox.addEventListener('change', () => {
-            if (autoRefreshCheckbox.checked) {
-                if (!autoRefreshCheckbox.disabled) {
-                    startAutoRefresh();
-                }
-            } else {
-                stopAutoRefresh();
-            }
-        });
-
-        // --- Initial Load ---
-        updateChart(currentRange, null, null);
-        startAutoRefresh();
-
+         console.log("Chart script finished.");
     </script>
+
+    <!-- JavaScript for Auth Link Update -->
+    <script>
+        function updateAuthSection() {
+            const authSection = document.getElementById('user-auth-section');
+            console.log("Attempting to update auth section.");
+
+            // Simple function to prevent basic HTML injection
+            function escapeHTML(str) {
+                if (str === null || str === undefined) return '';
+                return str.toString()
+                         .replace(/&/g, '&amp;')
+                         .replace(/</g, '&lt;')
+                         .replace(/>/g, '&gt;')
+                         .replace(/"/g, '&quot;')
+                         .replace(/'/g, '&#039;');
+            }
+
+            if (authSection) {
+                fetch('/api/session-check')
+                    .then(response => {
+                        console.log(`Auth check response status: ${response.status}`);
+                        if (!response.ok) {
+                            throw new Error(`HTTP error ${response.status}`);
+                        }
+                        return response.json();
+                    })
+                    .then(data => {
+                        console.log('Login status data:', data);
+                        if (data && data.logged_in) {
+                            const userName = data.user_name ? escapeHTML(data.user_name) : 'User';
+                            authSection.innerHTML = `
+                                <span>Welcome, ${userName}!</span> |
+                                <a href="/api/logout">Logout</a>
+                            `;
+                            console.log("Auth section updated to logged-in state.");
+                        } else {
+                            authSection.innerHTML = `
+                                <a href="/login">Login / Register</a>
+                            `;
+                            console.log("Auth section set to logged-out state.");
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error updating auth section:', error);
+                        authSection.innerHTML = `
+                            <a href="/login">Login / Register</a>
+                        `;
+                    });
+            } else {
+                console.error("Element with ID 'user-auth-section' not found.");
+            }
+        }
+
+        // Call function immediately and on DOMContentLoaded to cover both cases
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateAuthSection);
+        } else {
+            updateAuthSection();
+        }
+        
+        console.log("Auth update script loaded.");
+    </script>
+
 </body>
 </html>
