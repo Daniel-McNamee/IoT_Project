@@ -1,0 +1,20 @@
+[Unit]
+Description=Terrarium Control Service for Smart Thermostat
+After=network-online.target multi-user.target
+Wants=network-online.target
+
+[Service]
+User=DanDev
+Group=DanDev
+
+# --- Working Directory ---
+WorkingDirectory=/home/DanDev
+ExecStart=/home/DanDev/temp_humidity_env/bin/python /home/DanDev/terrarium_control.py
+
+Restart=on-failure
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
