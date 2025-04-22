@@ -1,7 +1,6 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Terrarium Monitor Dashboard</title>
@@ -12,35 +11,81 @@
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
     <!-- Annotation Plugin -->
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-annotation@3.0.1/dist/chartjs-plugin-annotation.min.js"></script>
+    <!-- Boxicons -->
+    <link href='https://unpkg.com/boxicons@2.1.4/css/boxicons.min.css' rel='stylesheet'>
 
     <style>
-        body { background-color: skyblue; margin: 0; font-family: sans-serif; }
+        /* --- Styles --- */
+        body { background-color: skyblue; margin: 0; font-family: "Poppins", sans-serif; color: #333; }
         #user-auth-section { text-align: right; padding: 10px 20px; background-color: #e0e0e0; border-bottom: 1px solid #cccccc; margin-bottom: 15px; font-size: 0.9em; }
         #user-auth-section span { font-weight: bold; margin-right: 5px; }
         #user-auth-section a { text-decoration: none; color: #337ab7; }
         #user-auth-section a:hover { text-decoration: underline; }
-        h1 { text-align: center; margin-top: 20px; margin-bottom: 15px; }
-        h2 { text-align: center; margin-top: 30px; margin-bottom: 10px; font-size: 1.2em; }
-        .chart-container { width: 90%; max-width: 1000px; margin: 20px auto; background-color: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
-        .controls { text-align: center; margin-bottom: 20px; padding: 10px; background-color: #f8f8f8; border-radius: 5px;}
-        .controls label { margin: 0 10px; font-weight: bold; }
-        .controls select, .controls input[type="checkbox"] { margin-left: 5px; vertical-align: middle;}
-        #customDateSelector { margin-top: 10px; padding: 10px; border: 1px solid #eee; border-radius: 5px; display: inline-block; background-color: #f8f8f8;}
-        #customDateSelector label { margin-right: 5px; }
-        #flatpickrInput { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; }
-        #applyCustomRangeBtn { margin-left: 10px; padding: 6px 12px; cursor: pointer; border: 1px solid #aaa; border-radius: 4px; background-color: #f0f0f0; }
-        #applyCustomRangeBtn:hover { background-color: #e0e0e0; }
-        #applyCustomRangeBtn:disabled { cursor: not-allowed; opacity: 0.6; }
-        #loadingIndicator { text-align: center; margin: 15px; font-weight: bold; color: #555; }
-        #latest-data { width: 90%; max-width: 1000px; margin: 10px auto 30px auto; background-color: #f5f5f5; border: 1px solid #ddd; padding: 15px; font-family: monospace; white-space: pre-wrap; word-wrap: break-word; max-height: 200px; overflow-y: auto; border-radius: 5px; }
+        h1 { text-align: center; margin-top: 20px; margin-bottom: 15px; color: #343a40; }
+        h2 { text-align: center; margin-top: 30px; margin-bottom: 10px; font-size: 1.5em; color: #495057;}
+        .chart-container { width: 90%; max-width: 1000px; margin: 20px auto; background-color: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .controls { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 15px; margin-bottom: 20px; padding: 15px; background-color: #f8f8f8; border-radius: 5px; }
+        .control-group { display: flex; align-items: center; gap: 5px; }
+        .controls label { margin: 0; font-weight: bold; color: #555; }
+        .controls select, .controls input[type="checkbox"] { margin-left: 0; vertical-align: middle; padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; }
+        #deviceSelect { min-width: 180px; }
+        #customDateSelector { margin-top: 0; padding: 10px; border: 1px solid #eee; border-radius: 5px; display: inline-block; background-color: #f0f0f0;}
+        #customDateSelector label { margin-right: 5px; color: #555;}
+        #flatpickrInput { padding: 5px 8px; border: 1px solid #ccc; border-radius: 4px; background-color: white; }
+        #applyCustomRangeBtn { margin-left: 10px; padding: 6px 12px; cursor: pointer; border: 1px solid #aaa; border-radius: 4px; background-color: #e9e9e9; }
+        #applyCustomRangeBtn:hover { background-color: #dcdcdc; }
+        #applyCustomRangeBtn:disabled { cursor: not-allowed; opacity: 0.6; background-color: #f5f5f5; }
+        #loadingIndicator, #chartErrorIndicator { text-align: center; margin: 15px; font-weight: bold; color: #555; padding: 10px; background-color: #f0f0f0; border-radius: 4px; display: none; }
+        #chartErrorIndicator { color: #a94442; background-color: #f2dede; border: 1px solid #ebccd1; }
+        #latest-data { width: 90%; max-width: 1000px; margin: 10px auto 30px auto; background-color: #fff; border: 1px solid #ddd; padding: 15px 20px; font-family: 'IBM Plex Mono', monospace; white-space: pre-wrap; word-wrap: break-word; max-height: 150px; overflow-y: auto; border-radius: 5px; font-size: 1em; line-height: 1.6; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        #latest-data.loading { color: #888; font-style: italic; }
+        #latest-data.error { color: #a94442; }
+        #settings-section { width: 90%; max-width: 1000px; margin: 30px auto; background-color: #fdfdfd; padding: 25px; border-radius: 8px; box-shadow: 0 2px 6px rgba(0,0,0,0.08); border: 1px solid #e0e0e0; display: none; }
+        #settings-section h2 { text-align: left; margin-top: 0; margin-bottom: 20px; font-size: 1.4em; color: #333; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        #settings-section h3 { margin-top: 15px; margin-bottom: 10px; font-size: 1.15em; color: #495057; font-weight: 600; }
+        .add-device-form { margin-bottom: 30px; padding: 20px; background-color: #fff; border: 1px solid #e0e0e0; border-radius: 5px; display: flex; flex-wrap: wrap; gap: 15px; align-items: flex-end; }
+        .add-device-form h3 { width: 100%; margin: 0 0 15px 0; font-size: 1.1em; color: #555; border-bottom: 1px dashed #eee; padding-bottom: 8px; }
+        .add-device-form .input-group { display: flex; flex-direction: column; flex-grow: 1; min-width: 180px; }
+        .add-device-form label { font-size: 0.9em; margin-bottom: 5px; color: #666; font-weight: 500; }
+        .add-device-form input[type="text"] { padding: 9px 12px; border: 1px solid #ccc; border-radius: 4px; font-size: 1em; transition: border-color 0.2s; }
+        .add-device-form input[type="text"]:focus { outline: none; border-color: #46609a; box-shadow: 0 0 0 2px rgba(70, 96, 154, 0.2); }
+        .add-device-form button { padding: 10px 18px; background-color: #46609a; color: white; border: none; border-radius: 4px; cursor: pointer; transition: background-color 0.2s; font-size: 1em; font-weight: 500; height: 41px; display: flex; align-items: center; gap: 5px; }
+        .add-device-form button:hover { background-color: #3a5082; }
+        .add-device-form button:disabled { background-color: #a0a0a0; cursor: not-allowed; }
+        #linked-devices-list { margin-top: 20px; }
+        .device-item { background-color: #fff; border: 1px solid #e5e5e5; border-radius: 5px; padding: 15px 20px; margin-bottom: 15px; display: flex; flex-wrap: wrap; align-items: center; gap: 15px 20px; position: relative; transition: box-shadow 0.2s; }
+        .device-item:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.07); }
+        .device-info { flex-grow: 1; min-width: 180px; }
+        .device-info strong { display: block; font-size: 1.15em; color: #333; margin-bottom: 5px; font-weight: 600; }
+        .device-info .device-id-display { font-size: 0.9em; color: #777; font-family: 'IBM Plex Mono', monospace; word-break: break-all; }
+        .device-settings-inputs { display: flex; flex-wrap: wrap; gap: 10px 15px; align-items: center; flex-basis: 400px; flex-grow: 2; }
+        .device-settings-inputs .input-group { display: flex; flex-direction: column; flex-grow: 1; min-width: 120px; }
+        .device-settings-inputs label { font-size: 0.85em; margin-bottom: 3px; color: #666; font-weight: 500; }
+        .device-settings-inputs input[type="number"], .device-settings-inputs input[type="text"] { width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em; box-sizing: border-box; transition: border-color 0.2s; }
+        .device-settings-inputs input:focus { outline: none; border-color: #5cb85c; box-shadow: 0 0 0 2px rgba(92, 184, 92, 0.2); }
+        .device-actions { display: flex; gap: 10px; margin-left: auto; flex-shrink: 0; padding-top: 5px; }
+        .device-actions button { padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: all 0.2s; border: none; display: flex; align-items: center; gap: 4px; }
+        .device-actions button:disabled { opacity: 0.7; cursor: not-allowed; }
+        .save-settings-btn { background-color: #5cb85c; color: white; }
+        .save-settings-btn:hover:not(:disabled) { background-color: #4cae4c; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .unlink-device-btn { background-color: #d9534f; color: white; }
+        .unlink-device-btn:hover:not(:disabled) { background-color: #d43f3a; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .device-status-msg { font-size: 0.85em; margin-top: 5px; padding: 4px 8px; border-radius: 3px; display: inline-block; width: auto; text-align: center; transition: opacity 0.3s ease-in-out; }
+        .add-device-form .device-status-msg { flex-basis: 100%; order: 5; margin-top: 5px; }
+        .device-item .device-status-msg { position: absolute; bottom: -22px; left: 20px; background: white; z-index: 1; box-shadow: 0 1px 2px rgba(0,0,0,0.1); opacity: 0; pointer-events: none; }
+        .device-status-msg.success { background-color: #dff0d8; color: #3c763d; border: 1px solid #d6e9c6;}
+        .device-status-msg.error { background-color: #f2dede; color: #a94442; border: 1px solid #ebccd1;}
+        #settings-loading, #settings-error, #no-devices-msg { text-align: center; padding: 20px; margin-top: 10px; color: #666; font-style: italic; background-color: #f9f9f9; border-radius: 4px; border: 1px dashed #eee; }
+        #settings-error { color: #a94442; border-color: #ebccd1; background-color: #f2dede;}
+        .highlight-success { animation: highlight 1.5s ease-out; }
+        @keyframes highlight { 0% { background-color: #dff0d8; } 100% { background-color: #fff; } }
     </style>
-
 </head>
 
 <body>
 
     <!-- Login/Logout Link and User Info -->
-    <div id="user-auth-section">
+    <div id="user-auth-section" data-logged-in="false"> <!-- Default to logged out -->
         <a href="{{ url_for('login_page') }}">Login / Register</a>
     </div>
 
@@ -48,398 +93,1026 @@
 
     <!-- Controls -->
     <div class="controls">
-        <label for="timeRangeSelect">Time Range:</label>
-        <select id="timeRangeSelect">
-            <option value="hour" selected>Last Hour (5 min avg)</option>
-            <option value="8hour">Last 8 Hours (5 min avg)</option>
-            <option value="last24h">Last 24 Hours (5 min avg)</option>
-            <option value="past7d">Past 7 Days (30 min avg)</option>
-            <option value="past31d">Past 31 Days (Hourly avg)</option>
-            <option value="past365d">Past 365 Days (Daily avg)</option>
-            <option value="day">Today (5 min avg)</option>
-            <option value="week">This Week (Mon-Sun, 30 min avg)</option>
-            <option value="month">This Month (30 min avg)</option>
-            <option value="year">This Year (Daily avg)</option>
-            <option value="custom">Custom Range...</option>
-        </select>
-
-        <label for="autoRefreshCheckbox">
-            <input type="checkbox" id="autoRefreshCheckbox" checked> Auto-Refresh (1 min)
-        </label>
+        <!-- Device Selector -->
+        <div class="control-group">
+            <label for="deviceSelect"><i class='bx bx-chip' style="vertical-align: middle;"></i> Device:</label>
+            <select id="deviceSelect" disabled>
+                <option value="">-- No devices linked --</option>
+            </select>
+        </div>
+        <!-- Time Range Selector -->
+        <div class="control-group">
+            <label for="timeRangeSelect"><i class='bx bx-calendar' style="vertical-align: middle;"></i> Time Range:</label>
+            <select id="timeRangeSelect">
+                 <!-- (Options) -->
+                <option value="hour">Last Hour (1 min avg)</option>
+                <option value="8hour">Last 8 Hours (5 min avg)</option>
+                <option value="last24h" selected>Last 24 Hours (10 min avg)</option>
+                <option value="past7d">Past 7 Days (30 min avg)</option>
+                <option value="past31d">Past 31 Days (Hourly avg)</option>
+                <option value="past365d">Past 365 Days (Daily avg)</option>
+                <option value="day">Today (5 min avg)</option>
+                <option value="week">This Week (30 min avg)</option>
+                <option value="month">This Month (Hourly avg)</option>
+                <option value="year">This Year (Daily avg)</option>
+                <option value="custom">Custom Range...</option>
+            </select>
+        </div>
+        <!-- Custom Date Picker Controls -->
+        <div class="control-group">
+             <label for="customDateSelector" id="customDateLabel" style="display: none;">Range:</label>
+             <div id="customDateSelector" style="display: none;">
+                <input type="text" id="flatpickrInput" placeholder="Select date range...">
+                <button id="applyCustomRangeBtn" disabled>Apply</button>
+            </div>
+        </div>
+        <!-- Auto Refresh -->
+        <div class="control-group">
+            <label for="autoRefreshCheckbox">
+                <input type="checkbox" id="autoRefreshCheckbox" checked> Auto-Refresh
+            </label>
+        </div>
     </div>
 
-    <!-- Custom Date Selector -->
-    <div id="customDateSelector" style="display: none; text-align: center;">
-        <label for="flatpickrInput">Select Range:</label>
-        <input type="text" id="flatpickrInput" placeholder="Click to select date range...">
-        <button id="applyCustomRangeBtn" disabled>Apply</button>
-    </div>
-
-     <!-- Loading Indicator -->
-     <div id="loadingIndicator" style="display: none;">
-         Loading chart data...
-     </div>
+     <!-- Loading / Error Indicators -->
+     <div id="loadingIndicator">Loading chart data...</div>
+     <div id="chartErrorIndicator"></div>
 
     <!-- Chart Canvas -->
     <div class="chart-container">
         <canvas id="sensorChart"></canvas>
     </div>
 
-    <!-- Latest Readings Test Data -->
-    <h2>Latest Readings (API Test)</h2>
-    <pre id="latest-data">Loading...</pre>
+    <!-- Settings Section -->
+    <div id="settings-section">
+         <!-- (Settings HTML structure) -->
+         <h2><i class='bx bxs-cog' style='vertical-align: middle; margin-right: 5px;'></i>Device Settings</h2>
+         <div class="add-device-form">
+             <h3><i class='bx bx-link-alt' style='vertical-align: middle; margin-right: 5px;'></i>Link a New Device</h3>
+             <div class="input-group">
+                 <label for="new-device-id">Device Unique ID (from sticker)</label>
+                 <input type="text" id="new-device-id" placeholder="Enter the ID from device sticker" required>
+             </div>
+             <div class="input-group">
+                 <label for="new-device-name">Device Name (Optional)</label>
+                 <input type="text" id="new-device-name" placeholder="e.g., Leo Gecko Tank">
+             </div>
+             <button id="link-device-btn"><i class='bx bx-plus-circle'></i> Link Device</button>
+             <div id="link-device-status" class="device-status-msg" style="display: none;"></div>
+         </div>
+         <h3><i class='bx bx-list-ul' style='vertical-align: middle; margin-right: 5px;'></i>Your Linked Devices</h3>
+         <div id="settings-loading" style="display: none;">Loading devices...</div>
+         <div id="settings-error" style="display: none;"></div>
+         <div id="linked-devices-list"></div>
+         <p id="no-devices-msg" style="display: none;">You have no devices linked yet.</p>
+    </div>
 
-    <!-- JavaScript for chart functionality -->
+    <!-- Latest Readings -->
+    <h2><i class='bx bx-time-five' style='vertical-align: middle; margin-right: 5px;'></i>Latest Reading (<span id="latest-reading-device-name">No device selected</span>)</h2>
+    <pre id="latest-data" class="loading">Loading...</pre>
+
+    <!-- ================================= -->
+    <!-- === JAVASCRIPT SECTIONS === -->
+    <!-- ================================= -->
+
+    <!-- Charting Script -->
     <script>
-        // --- Charting Code ---
+        // --- Charting Script ---
         console.log("Chart script starting.");
 
-        // Fetch latest readings
-        fetch('/api/readings/latest')
-            .then(response => {
-                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                return response.json();
-            })
-            .then(data => {
-                const preElement = document.getElementById('latest-data');
-                if(preElement) preElement.textContent = JSON.stringify(data, null, 2);
-            })
-            .catch(e => {
-                console.error('Error fetching latest readings:', e);
-                const preElement = document.getElementById('latest-data');
-                if(preElement) preElement.textContent = `Error loading latest data: ${e.message}`;
-            });
-
-        // Chart.js setup
+        // --- Chart Variables ---
         const ctx = document.getElementById('sensorChart');
         const timeRangeSelect = document.getElementById('timeRangeSelect');
         const autoRefreshCheckbox = document.getElementById('autoRefreshCheckbox');
         const customDateSelector = document.getElementById('customDateSelector');
+        const customDateLabel = document.getElementById('customDateLabel');
         const flatpickrInput = document.getElementById('flatpickrInput');
         const loadingIndicator = document.getElementById('loadingIndicator');
+        const chartErrorIndicator = document.getElementById('chartErrorIndicator');
         const applyCustomRangeBtn = document.getElementById('applyCustomRangeBtn');
-        let sensorChart;
-        let currentRange = timeRangeSelect ? timeRangeSelect.value : 'hour';
+        const deviceSelect = document.getElementById('deviceSelect');
+
+        let sensorChart = null;
+        let currentRange = timeRangeSelect ? timeRangeSelect.value : 'last24h';
+        let currentDeviceId = null;
         let refreshIntervalId = null;
         const REFRESH_INTERVAL_MS = 60000;
         let selectedStartDate = null;
         let selectedEndDate = null;
         let flatpickrInstance = null;
 
-        // Initialize Flatpickr
+        // --- Flatpickr Initialization ---
         if (flatpickrInput) {
-             flatpickrInstance = flatpickr(flatpickrInput, {
+            flatpickrInstance = flatpickr(flatpickrInput, {
                 mode: "range",
                 dateFormat: "Y-m-d",
                 maxDate: "today",
                 onChange: function(selectedDates, dateStr, instance) {
-                    if (selectedDates.length === 2) {
-                        selectedStartDate = selectedDates[0];
-                        selectedEndDate = selectedDates[1];
-                        if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = false;
-                        console.log(`Custom range staged: ${selectedStartDate.toISOString().split('T')[0]} to ${selectedEndDate.toISOString().split('T')[0]}`);
-                    } else {
-                        selectedStartDate = null;
-                        selectedEndDate = null;
+                     applyCustomRangeBtn.disabled = selectedDates.length !== 2;
+                 },
+                 onClose: function(selectedDates, dateStr, instance) {
+                     if (selectedDates.length === 2) {
+                         selectedStartDate = selectedDates[0];
+                         selectedEndDate = selectedDates[1];
+                         if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = false;
+                         console.log(`Custom range staged: ${selectedStartDate.toISOString().split('T')[0]} to ${selectedEndDate.toISOString().split('T')[0]}`);
+                     } else {
+                         selectedStartDate = null;
+                         selectedEndDate = null;
                          if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
-                    }
-                },
-                onClose: function(selectedDates, dateStr, instance) {
-                    if (!selectedStartDate || !selectedEndDate) {
-                        console.log("Flatpickr closed without selecting a valid range.");
-                    }
-                }
+                         console.log("Flatpickr closed without selecting a valid range.");
+                     }
+                 }
             });
         } else { console.error("Flatpickr input element not found."); }
 
-        // Apply Button Listener
+        // --- Apply Custom Range Button ---
         if (applyCustomRangeBtn) {
             applyCustomRangeBtn.addEventListener('click', () => {
-                if (selectedStartDate && selectedEndDate) {
+                if (selectedStartDate && selectedEndDate && currentDeviceId) {
                     const startDateStr = selectedStartDate.toISOString().split('T')[0];
                     const endDateStr = selectedEndDate.toISOString().split('T')[0];
-                    console.log(`Applying custom range: ${startDateStr} to ${endDateStr}`);
+                    console.log(`Applying custom range: ${startDateStr} to ${endDateStr} for Device ID: ${currentDeviceId}`);
+                    currentRange = 'custom';
                     stopAutoRefresh();
-                    if(autoRefreshCheckbox) autoRefreshCheckbox.checked = false;
-                    updateChart(null, startDateStr, endDateStr);
+                    if(autoRefreshCheckbox) {
+                        autoRefreshCheckbox.checked = false;
+                        autoRefreshCheckbox.disabled = true;
+                    }
+                    updateChart(currentDeviceId, null, startDateStr, endDateStr);
                 } else {
-                    console.warn("Apply button clicked, but no valid date range is selected.");
+                    alert("Please select a device and a valid date range.");
                 }
             });
         } else { console.error("Apply custom range button not found."); }
 
-        // updateChart function
-        function updateChart(range, startDate, endDate) {
-             let fetchUrl;
-             let isCustomRange = false;
-             console.log(`updateChart called with range: ${range}, startDate: ${startDate}, endDate: ${endDate}`);
+        // --- Clear Chart Function ---
+         function clearChart(message = 'No data available.') {
+             if (sensorChart) {
+                 sensorChart.options.plugins.title.text = message;
+                 sensorChart.data.labels = [];
+                 sensorChart.data.datasets.forEach(ds => ds.data = []);
+                 if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = [];
+                 sensorChart.update('none');
+             }
+             showChartMessage(message, true);
+         }
 
-             if(loadingIndicator) loadingIndicator.style.display = 'block';
+        // --- Show Message on Chart Area ---
+         function showChartMessage(message, isError = false) {
+             if(loadingIndicator) loadingIndicator.style.display = 'none';
+             if(chartErrorIndicator) {
+                 chartErrorIndicator.textContent = message;
+                 chartErrorIndicator.style.display = 'block';
+                 if (isError) {
+                     chartErrorIndicator.style.borderColor = '#ebccd1';
+                     chartErrorIndicator.style.backgroundColor = '#f2dede';
+                     chartErrorIndicator.style.color = '#a94442';
+                 } else {
+                     chartErrorIndicator.style.borderColor = '#eee';
+                     chartErrorIndicator.style.backgroundColor = '#f9f9f9';
+                     chartErrorIndicator.style.color = '#555';
+                 }
+             }
+              if (sensorChart) {
+                 sensorChart.data.labels = [];
+                 sensorChart.data.datasets.forEach(ds => ds.data = []);
+                 if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = [];
+                 sensorChart.update('none');
+             }
+         }
 
-             // Determine fetch URL based on parameters
-             if (startDate && endDate) {
-                 fetchUrl = `/api/chartdata?start_date=${startDate}&end_date=${endDate}`;
-                 console.log(`Fetching custom range: ${startDate} to ${endDate}`);
-                 isCustomRange = true;
-                 if (autoRefreshCheckbox) {
-                      autoRefreshCheckbox.checked = false;
-                      autoRefreshCheckbox.disabled = true;
-                  }
-                 stopAutoRefresh();
-             } else if (range && range !== "custom") {
-                 fetchUrl = `/api/chartdata?range=${range}`;
-                 console.log(`Fetching relative range: ${range}`);
-                  if (autoRefreshCheckbox) autoRefreshCheckbox.disabled = false;
-                  if (autoRefreshCheckbox && autoRefreshCheckbox.checked) {
-                     startAutoRefresh();
-                  } else {
-                     stopAutoRefresh();
-                  }
-             } else if (range === "custom") {
-                 // Handle 'Custom Range' selection from dropdown
-                 console.log("Custom range selected, showing date picker.");
-                  if (customDateSelector) customDateSelector.style.display = 'block';
-                  if (applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
-                  if (autoRefreshCheckbox) {
-                      autoRefreshCheckbox.checked = false;
-                      autoRefreshCheckbox.disabled = true;
-                  }
-                  stopAutoRefresh();
-                  if (flatpickrInstance) flatpickrInstance.open();
-                  // Clear chart or show message while waiting for date selection
-                  if (sensorChart) {
-                      sensorChart.options.plugins.title.text = 'Select Date Range and Click Apply';
-                      sensorChart.data.labels = [];
-                      sensorChart.data.datasets[0].data = [];
-                      sensorChart.data.datasets[1].data = [];
-                      if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = []; // Clear annotations too
-                      sensorChart.update('none');
-                  }
-                  if(loadingIndicator) loadingIndicator.style.display = 'none';
-                  return;
+        // --- Update Chart Function ---
+        function updateChart(deviceId, range, startDate, endDate) {
+             if (!deviceId) {
+                 console.warn("updateChart called without deviceId.");
+                 clearChart("Please select a device to view data.");
+                 if(timeRangeSelect) timeRangeSelect.disabled = true;
+                 if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true;
+                 return;
              } else {
-                 console.error("updateChart called without valid parameters!");
-                  if(loadingIndicator) loadingIndicator.style.display = 'none';
-                  return;
+                 if(timeRangeSelect) timeRangeSelect.disabled = false;
+                 if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = (range === 'custom' || (startDate && endDate));
              }
 
-             // Fetch data from the determined URL
+             const isCustom = (startDate && endDate);
+             console.log(`updateChart called for Device ID: ${deviceId}, Range: ${range}, Start: ${startDate}, End: ${endDate}`);
+
+             const authSection = document.getElementById('user-auth-section');
+             const isLoggedIn = authSection && authSection.dataset.loggedIn === 'true';
+             if (!isLoggedIn) {
+                 console.warn("User not logged in for chart update.");
+                 clearChart("Please login to view chart data.");
+                 return;
+             }
+
+             if(loadingIndicator) { loadingIndicator.textContent = 'Loading chart data...'; loadingIndicator.style.display = 'block'; }
+             if(chartErrorIndicator) chartErrorIndicator.style.display = 'none';
+             if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 0.7;
+
+             let fetchUrl = `/api/chartdata?device_id=${deviceId}`;
+             if (isCustom) {
+                 fetchUrl += `&start_date=${startDate}&end_date=${endDate}`;
+                 console.log(`Fetching custom range: ${startDate} to ${endDate}`);
+                 stopAutoRefresh();
+                 if (autoRefreshCheckbox) { autoRefreshCheckbox.checked = false; autoRefreshCheckbox.disabled = true;}
+             } else if (range && range !== "custom") {
+                 fetchUrl += `&range=${range}`;
+                 console.log(`Fetching relative range: ${range}`);
+                 if (autoRefreshCheckbox) {
+                     autoRefreshCheckbox.disabled = false;
+                     if (autoRefreshCheckbox.checked) { startAutoRefresh(); } else { stopAutoRefresh(); }
+                 }
+             } else if (range === "custom") {
+                 console.log("Custom range selected via dropdown - apply button triggers fetch.");
+                 if(loadingIndicator) loadingIndicator.style.display = 'none';
+                 if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1;
+                 clearChart('Select Date Range and Click Apply');
+                 return;
+             } else {
+                 console.error("updateChart: Invalid combination of range/dates.");
+                 showChartMessage("Invalid chart parameters.", true);
+                 if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1;
+                 return;
+             }
+
              fetch(fetchUrl)
-                 .then(response => { // Handle response status and errors
+                 .then(response => {
                      if (!response.ok) {
-                          if (response.status === 401) {
-                             console.warn('Authentication required for chart data. Redirecting to login.');
-                             window.location.href = '/login';
-                             throw new Error('Authentication required.');
-                          }
-                          return response.json().then(errData => {
-                              throw new Error(`HTTP error! status: ${response.status}, message: ${errData.error || 'Unknown server error'}`);
-                          }).catch(() => { // Catch if error response wasn't JSON
-                              throw new Error(`HTTP error! status: ${response.status}`);
-                          });
-                      }
-                      return response.json(); // Parse JSON if response is good
-                  })
-                 .then(data => { // Process the received chart data
-                     // Basic validation of the data structure
-                     if (!data || typeof data !== 'object' || !Array.isArray(data.labels) || !Array.isArray(data.temperatures) || !Array.isArray(data.humidities)) {
-                         console.error("Received invalid data format from API:", data);
-                         throw new Error('Invalid data format received from server.');
+                         if (response.status === 401) { showChartMessage("Authentication Required. Redirecting...", true); setTimeout(() => window.location.href = '/login', 1500); throw new Error('Authentication required.'); }
+                         if (response.status === 403 || response.status === 404) { showChartMessage("Device not found or access denied.", true); throw new Error('Device access error.'); }
+                         return response.json().then(errData => { throw new Error(`HTTP error! Status: ${response.status}, Message: ${errData.message || errData.error || 'Unknown server error'}`); }).catch(() => { throw new Error(`HTTP error! Status: ${response.status}`); });
+                     }
+                     return response.json();
+                 })
+                 .then(data => {
+                     if (!data || typeof data !== 'object' || !Array.isArray(data.labels) || !Array.isArray(data.temperatures) || !Array.isArray(data.humidities)) { throw new Error('Invalid data format received from server.'); }
+                     if (data.labels.length === 0) { clearChart("No data available for the selected device and time range."); return; }
+
+                     const receivedGaps = Array.isArray(data.gaps) ? data.gaps : [];
+                     let chartTitleText = '';
+                     const selectedDeviceOption = deviceSelect.options[deviceSelect.selectedIndex];
+                     const deviceName = selectedDeviceOption ? selectedDeviceOption.text : `Device ${deviceId}`;
+
+                     if (isCustom) {
+                         const startDisplay = selectedStartDate ? selectedStartDate.toLocaleDateString() : startDate;
+                         const endDisplay = selectedEndDate ? selectedEndDate.toLocaleDateString() : endDate;
+                         chartTitleText = `${deviceName} (${startDisplay === endDisplay ? startDisplay : startDisplay + ' to ' + endDisplay})`;
+                     } else {
+                         const selectedRangeOption = timeRangeSelect ? Array.from(timeRangeSelect.options).find(opt => opt.value === range) : null;
+                         chartTitleText = `${deviceName} (${selectedRangeOption ? selectedRangeOption.text : (range || 'Current')})`;
                      }
 
-                     // Process gaps for annotations (ensure gaps is an array)
-                     const receivedGaps = Array.isArray(data.gaps) ? data.gaps : [];
-                     let chartTitleText = ''; // Determine chart title
+                     let annotations = [];
+                     if (Chart.registry.plugins.get('annotation') && data.labels.length > 0) {
+                          annotations = receivedGaps.map(gap => {
+                                const startIndex = data.labels.indexOf(gap.start);
+                                const endIndex = data.labels.indexOf(gap.end);
+                                if (startIndex !== -1 && endIndex !== -1) {
+                                    return { type: 'box', xMin: startIndex, xMax: endIndex, backgroundColor: 'rgba(200,200,200,0.3)', borderColor: 'rgba(180,180,180,0.4)', borderWidth: 1, label: { content: 'Gap', display: true, position: 'start', color: 'rgba(100,100,100,0.7)', font: { size: 10 } }, drawTime: 'beforeDatasetsDraw' };
+                                } return null;
+                           }).filter(a => a !== null);
+                           if (annotations.length !== receivedGaps.length) { console.warn("Some gaps couldn't be annotated accurately."); }
+                     }
 
-                      if (isCustomRange) {
-                          const startDisplay = selectedStartDate ? selectedStartDate.toLocaleDateString() : 'N/A';
-                          const endDisplay = selectedEndDate ? selectedEndDate.toLocaleDateString() : 'N/A';
-                          chartTitleText = startDisplay === endDisplay ? `Readings (${startDisplay})` : `Readings (${startDisplay} to ${endDisplay})`;
-                      } else {
-                          const selectedOption = timeRangeSelect ? Array.from(timeRangeSelect.options).find(opt => opt.value === range) : null;
-                          chartTitleText = `Readings (${selectedOption ? selectedOption.text : (range || 'Current')})`;
-                      }
-
-                     // Create annotations if plugin is registered
-                     const annotations = (Chart.registry.plugins.get('annotation')) ? receivedGaps.map(gap => ({
-                             type: 'box',
-                             xMin: gap.start, xMax: gap.end,
-                             backgroundColor: 'rgba(200, 200, 200, 0.3)', borderColor: 'rgba(180, 180, 180, 0.4)', borderWidth: 1,
-                             drawTime: 'beforeDatasetsDraw'
-                         })) : [];
-
-                      // Define the chart configuration object
-                      const chartConfig = {
+                     const chartConfig = {
                           type: 'line',
-                          data: {
-                              labels: data.labels,
-                              datasets: [
-                                  {
-                                      label: 'Temperature (°C)', data: data.temperatures,
-                                      borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.1)',
-                                      yAxisID: 'yTemp', tension: 0.1,
-                                      pointRadius: data.labels.length < 100 ? 3 : 0, pointHoverRadius: data.labels.length < 100 ? 5 : 3
-                                  },
-                                  {
-                                      label: 'Humidity (%)', data: data.humidities,
-                                      borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.1)',
-                                      yAxisID: 'yHumid', tension: 0.1,
-                                      pointRadius: data.labels.length < 100 ? 3 : 0, pointHoverRadius: data.labels.length < 100 ? 5 : 3
-                                  }
-                              ]
-                          },
-                          options: {
-                              responsive: true, maintainAspectRatio: true, animation: { duration: 200 },
-                              scales: {
-                                 x: { title: { display: true, text: 'Time' }, ticks: { autoSkip: true, maxTicksLimit: data.labels.length > 100 ? 20 : 40, maxRotation: 45, minRotation: 0 } },
-                                 yTemp: { type: 'linear', position: 'left', title: { display: true, text: 'Temperature (°C)' }, suggestedMin: 10, suggestedMax: 35 },
-                                 yHumid: { type: 'linear', position: 'right', title: { display: true, text: 'Humidity (%)' }, suggestedMin: 0, suggestedMax: 100, grid: { drawOnChartArea: false } }
-                              },
-                              plugins: {
-                                  legend: { position: 'top' },
-                                  title: { display: true, text: chartTitleText },
-                                  // Include annotation options if plugin exists
-                                  annotation: Chart.registry.plugins.get('annotation') ? { annotations: annotations } : {},
-                                  tooltip: {
-                                     mode: 'index', intersect: false,
-                                     callbacks: { label: function(context) { /* tooltip formatting ... */ } }
-                                  }
-                              },
-                              interaction: { mode: 'nearest', axis: 'x', intersect: false }
-                          }
-                      };
+                          data: { labels: data.labels, datasets: [ { label: 'Temperature (°C)', data: data.temperatures, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.1)', yAxisID: 'yTemp', tension: 0.1, spanGaps: false, pointRadius: data.labels.length < 150 ? 2 : 0, pointHoverRadius: 5 }, { label: 'Humidity (%)', data: data.humidities, borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.1)', yAxisID: 'yHumid', tension: 0.1, spanGaps: false, pointRadius: data.labels.length < 150 ? 2 : 0, pointHoverRadius: 5 } ] },
+                          options: { responsive: true, maintainAspectRatio: true, animation: { duration: 300 }, scales: { x: { title: { display: true, text: 'Time' }, ticks: { autoSkip: true, maxTicksLimit: data.labels.length > 200 ? 15 : (data.labels.length > 50 ? 25 : 40), maxRotation: 45, minRotation: 0 } }, yTemp: { type: 'linear', position: 'left', title: { display: true, text: 'Temperature (°C)' }, suggestedMin: 10, suggestedMax: 40 }, yHumid: { type: 'linear', position: 'right', title: { display: true, text: 'Humidity (%)' }, suggestedMin: 0, suggestedMax: 100, grid: { drawOnChartArea: false } } }, plugins: { legend: { position: 'top' }, title: { display: true, text: chartTitleText, font: { size: 16 } }, annotation: { annotations: annotations }, tooltip: { mode: 'index', intersect: false, callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null) { if (context.dataset.yAxisID === 'yTemp') label += context.parsed.y.toFixed(1) + ' °C'; else if (context.dataset.yAxisID === 'yHumid') label += context.parsed.y.toFixed(1) + ' %'; else label += context.parsed.y; } else label += 'No data'; return label; } } } }, interaction: { mode: 'nearest', axis: 'x', intersect: false } }
+                     };
 
-                     // Update existing chart or create a new one
                      if (sensorChart) {
                          console.log("Updating existing chart.");
+                         sensorChart.options.plugins.title.text = chartTitleText;
+                         sensorChart.options.plugins.annotation.annotations = annotations;
                          sensorChart.data.labels = data.labels;
                          sensorChart.data.datasets[0].data = data.temperatures;
                          sensorChart.data.datasets[1].data = data.humidities;
-                         sensorChart.options.plugins.title.text = chartTitleText;
-                         // Update annotations if plugin options exist
-                         if (sensorChart.options.plugins.annotation) {
-                              sensorChart.options.plugins.annotation.annotations = annotations;
-                         }
                          sensorChart.update();
                      } else {
                          console.log("Creating new chart.");
                          if (ctx) {
+                              if(!Chart.registry.plugins.get('annotation')) { console.warn("Annotation plugin NOT registered."); if(chartConfig.options.plugins.annotation) delete chartConfig.options.plugins.annotation; }
                               sensorChart = new Chart(ctx, chartConfig);
-                         } else {
-                             console.error("Canvas context (ctx) not found, cannot create chart.");
-                             throw new Error("Chart canvas context not available.");
-                         }
+                         } else { throw new Error("Chart canvas context not available."); }
                      }
-                      console.log(`Chart updated/created. Labels: ${data.labels.length}. Gaps: ${receivedGaps.length}`);
+                      console.log(`Chart updated/created for Device ${deviceId}. Labels: ${data.labels.length}. Annotated Gaps: ${annotations.length}`);
                  })
-                 .catch(error => { // Handle errors during fetch or processing
-                     console.error('Error fetching/processing chart data:', error);
-                     const errorMsg = `Error: ${error.message || 'Failed to load chart data'}`;
-                     if (sensorChart && sensorChart.options && sensorChart.options.plugins && sensorChart.options.plugins.title) {
-                         sensorChart.options.plugins.title.text = errorMsg;
-                         sensorChart.data.labels = [];
-                         sensorChart.data.datasets.forEach(dataset => dataset.data = []);
-                         if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = [];
-                         sensorChart.update();
-                     } else if (loadingIndicator) {
-                          loadingIndicator.textContent = errorMsg;
-                          loadingIndicator.style.display = 'block';
-                     }
+                 .catch(error => {
+                     console.error(`Error fetching/processing chart data for Device ${deviceId}:`, error);
+                     showChartMessage(`Error: ${error.message || 'Failed to load chart data'}`, true);
                  })
-                 .finally(() => { // Always run after fetch completes or fails
-                     // Hide loading indicator unless it's showing an error
-                     if (loadingIndicator && !loadingIndicator.textContent.startsWith("Error:")) {
-                          loadingIndicator.style.display = 'none';
-                          loadingIndicator.textContent = 'Loading chart data...';
-                     }
+                 .finally(() => {
+                     if(loadingIndicator) loadingIndicator.style.display = 'none';
+                     if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1;
                  });
          }
 
-        // Event Listeners & Auto-Refresh Logic
-        if (timeRangeSelect) { timeRangeSelect.addEventListener('change', (event) => { currentRange = event.target.value; console.log(`Time range selection changed to: ${currentRange}`); stopAutoRefresh(); if(flatpickrInstance) flatpickrInstance.clear(); if(customDateSelector) customDateSelector.style.display = 'none'; updateChart(currentRange, null, null); }); }
-        else { console.error("Time range select element not found."); }
+        // --- Event Listeners ---
+        if (deviceSelect) {
+             deviceSelect.addEventListener('change', () => {
+                 const selectedDeviceId = deviceSelect.value;
+                 if (selectedDeviceId) {
+                     console.log(`Device selection changed to: ${selectedDeviceId}`);
+                     currentDeviceId = selectedDeviceId;
+                     if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId); // Check if function exists
+                     // Trigger chart update for new device
+                     updateChart(currentDeviceId, currentRange, selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : null, selectedEndDate ? selectedEndDate.toISOString().split('T')[0] : null);
+                 } else {
+                      currentDeviceId = null;
+                      clearChart("Please select a device.");
+                      if(typeof clearLatestReading === 'function') clearLatestReading("No device selected"); // Check if function exists
+                      if(timeRangeSelect) timeRangeSelect.disabled = true;
+                      if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true;
+                 }
+             });
+        } else { console.error("Device select dropdown not found."); }
 
-        function startAutoRefresh() { if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) { console.log("Starting auto-refresh..."); refreshIntervalId = setInterval(() => { if (currentRange !== "custom") { console.log("Auto-refreshing chart for range:", currentRange); updateChart(currentRange, null, null); } else { console.warn("Auto-refresh triggered but in custom range mode, stopping."); stopAutoRefresh(); if(autoRefreshCheckbox) autoRefreshCheckbox.checked = false; } }, REFRESH_INTERVAL_MS); } else { console.log("Auto-refresh conditions not met or already running."); } }
-        function stopAutoRefresh() { if (refreshIntervalId !== null) { console.log("Stopping auto-refresh."); clearInterval(refreshIntervalId); refreshIntervalId = null; } }
+        if (timeRangeSelect) {
+             timeRangeSelect.addEventListener('change', (event) => {
+                 currentRange = event.target.value;
+                 console.log(`Time range selection changed to: ${currentRange}`);
+                 stopAutoRefresh();
+                 selectedStartDate = null; selectedEndDate = null;
+                 if(flatpickrInstance) flatpickrInstance.clear();
+                 const isCustom = currentRange === 'custom';
+                 if(customDateSelector) customDateSelector.style.display = isCustom ? 'inline-block' : 'none';
+                 if(customDateLabel) customDateLabel.style.display = isCustom ? 'inline' : 'none';
+                 if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
 
-        if (autoRefreshCheckbox) { autoRefreshCheckbox.addEventListener('change', () => { if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled) { startAutoRefresh(); } else { stopAutoRefresh(); } }); }
-        else { console.error("Auto refresh checkbox not found."); }
+                 if (currentDeviceId) {
+                      if (!isCustom) {
+                         updateChart(currentDeviceId, currentRange, null, null);
+                      } else {
+                           clearChart('Select Date Range and Click Apply');
+                           flatpickrInstance?.open();
+                      }
+                 } else {
+                      clearChart("Please select a device first.");
+                 }
+             });
+        } else { console.error("Time range select element not found."); }
 
-        // Initial Load
-        if (document.readyState === 'loading') { document.addEventListener('DOMContentLoaded', initializeDashboard); }
-        else { initializeDashboard(); }
+        if (autoRefreshCheckbox) {
+             autoRefreshCheckbox.addEventListener('change', () => {
+                 if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled) { startAutoRefresh(); }
+                 else { stopAutoRefresh(); }
+             });
+        } else { console.error("Auto refresh checkbox not found."); }
 
+        // --- Auto-Refresh Functions ---
+        function startAutoRefresh() {
+            if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) {
+                 if (currentDeviceId && currentRange !== "custom" && !selectedStartDate) {
+                     console.log(`Starting auto-refresh for Device ID: ${currentDeviceId}...`);
+                     refreshIntervalId = setInterval(() => {
+                         if (!currentDeviceId || currentRange === "custom" || selectedStartDate) {
+                              console.log("Stopping auto-refresh from interval due to state change.");
+                              stopAutoRefresh(); return;
+                         }
+                         console.log(`Auto-refreshing chart for Device: ${currentDeviceId}, Range: ${currentRange}`);
+                         updateChart(currentDeviceId, currentRange, null, null);
+                         if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                     }, REFRESH_INTERVAL_MS);
+                 } else { console.log("Auto-refresh skipped (no device, custom range, or checkbox disabled)."); }
+             }
+        }
+        function stopAutoRefresh() {
+            if (refreshIntervalId !== null) { console.log("Stopping auto-refresh."); clearInterval(refreshIntervalId); refreshIntervalId = null; }
+        }
+
+        // --- Chart Initialization (called later by auth script) ---
         function initializeDashboard() {
-             console.log("Initializing dashboard.");
-             if (!ctx) { console.error("Canvas context not found on init."); if(loadingIndicator) { loadingIndicator.textContent = "Error: Chart canvas not found."; loadingIndicator.style.display = 'block'; } return; }
-             updateChart(currentRange, null, null);
-             if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled) { startAutoRefresh(); }
+             console.log("Initializing dashboard: Checking device selection and loading initial chart.");
+             if (!ctx) { showChartMessage("Error: Chart canvas not found.", true); return; }
+
+             currentDeviceId = deviceSelect ? deviceSelect.value : null; // Get initial device selection
+             const initialRange = timeRangeSelect ? timeRangeSelect.value : 'last24h';
+             currentRange = initialRange;
+
+             const isCustomInitial = initialRange === 'custom';
+             if(customDateSelector) customDateSelector.style.display = isCustomInitial ? 'inline-block' : 'none';
+             if(customDateLabel) customDateLabel.style.display = isCustomInitial ? 'inline' : 'none';
+             if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
+
+             if (currentDeviceId) {
+                 console.log(`Initial load for Device ID: ${currentDeviceId}, Range: ${initialRange}`);
+                 updateChart(currentDeviceId, initialRange, null, null);
+                 if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+             } else {
+                 clearChart("Please link or select a device to view data.");
+                 if(typeof clearLatestReading === 'function') clearLatestReading("No device selected");
+                 if(timeRangeSelect) timeRangeSelect.disabled = true;
+                 if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true;
+             }
         }
-         console.log("Chart script finished.");
+        console.log("Chart script finished defining functions.");
     </script>
 
-    <!-- JavaScript for Auth Link Update -->
+        <!-- Settings Script -->
     <script>
-        function updateAuthSection() {
-            const authSection = document.getElementById('user-auth-section');
-            console.log("Attempting to update auth section.");
+        // --- Settings Script (WITH 401 HANDLING) ---
+        console.log("Device settings script starting.");
+        const settingsSection = document.getElementById('settings-section');
+        const linkedDevicesList = document.getElementById('linked-devices-list');
+        const linkDeviceBtn = document.getElementById('link-device-btn');
+        const newDeviceIdInput = document.getElementById('new-device-id');
+        const newDeviceNameInput = document.getElementById('new-device-name');
+        const linkDeviceStatus = document.getElementById('link-device-status');
+        const settingsLoading = document.getElementById('settings-loading');
+        const settingsError = document.getElementById('settings-error');
+        const noDevicesMsg = document.getElementById('no-devices-msg');
+        const deviceSelectDropdown = document.getElementById('deviceSelect');
 
-            // Simple function to prevent basic HTML injection
-            function escapeHTML(str) {
-                if (str === null || str === undefined) return '';
-                return str.toString()
-                         .replace(/&/g, '&amp;')
-                         .replace(/</g, '&lt;')
-                         .replace(/>/g, '&gt;')
-                         .replace(/"/g, '&quot;')
-                         .replace(/'/g, '&#039;');
+        // --- Helper: Show Status Message ---
+        function showStatusMessage(element, message, isSuccess) {
+            if (!element) {
+                console.warn("Attempted to show status on null element");
+                return;
+            }
+            element.textContent = message;
+            element.className = `device-status-msg ${isSuccess ? 'success' : 'error'}`;
+            element.style.display = 'inline-block';
+            element.style.opacity = 1;
+            // Auto-hide after delay
+            setTimeout(() => {
+                 if(element) {
+                      element.style.opacity = 0;
+                      // Set display none after fade
+                      setTimeout(() => {
+                          if(element) {
+                              element.style.display = 'none';
+                          }
+                      }, 300); // Transition
+                 }
+            }, isSuccess ? 3000 : 5000);
+        }
+
+        // --- Helper: Highlight Element ---
+         function highlightElement(element) {
+             if (!element) return;
+             element.classList.add('highlight-success');
+             setTimeout(() => {
+                 if (element) element.classList.remove('highlight-success');
+             }, 1500);
+         }
+
+        // --- Fetch and Render Devices ---
+        async function fetchAndRenderDevices() {
+            if (!settingsSection || !linkedDevicesList || !settingsLoading || !settingsError || !noDevicesMsg || !deviceSelectDropdown) {
+                console.error("Required UI elements missing for fetch/render devices.");
+                if(settingsError) { settingsError.textContent = "Error: UI elements missing."; settingsError.style.display = 'block'; }
+                return false;
             }
 
-            if (authSection) {
-                fetch('/api/session-check')
-                    .then(response => {
-                        console.log(`Auth check response status: ${response.status}`);
-                        if (!response.ok) {
-                            throw new Error(`HTTP error ${response.status}`);
-                        }
-                        return response.json();
-                    })
-                    .then(data => {
-                        console.log('Login status data:', data);
-                        if (data && data.logged_in) {
-                            const userName = data.user_name ? escapeHTML(data.user_name) : 'User';
-                            authSection.innerHTML = `
-                                <span>Welcome, ${userName}!</span> |
-                                <a href="/api/logout">Logout</a>
-                            `;
-                            console.log("Auth section updated to logged-in state.");
+            settingsLoading.style.display = 'block';
+            settingsError.style.display = 'none';
+            linkedDevicesList.innerHTML = '';
+            noDevicesMsg.style.display = 'none';
+            deviceSelectDropdown.innerHTML = '';
+            deviceSelectDropdown.disabled = true;
+
+            try {
+                const response = await fetch('/api/user/devices');
+
+                if (response.status === 401) {
+                     console.warn('Auth required for devices. Redirecting...');
+                     settingsLoading.style.display = 'none';
+                     throw new Error('Authentication required.'); // Let catch handle redirect
+                }
+
+                if (!response.ok) {
+                     let errorMsg = `HTTP error ${response.status}`;
+                     try { const d = await response.json(); errorMsg = d.message || d.error || errorMsg; } catch(e){}
+                     throw new Error(errorMsg);
+                 }
+                const result = await response.json();
+                settingsLoading.style.display = 'none';
+
+                if (result.success && result.devices) {
+                    if (result.devices.length > 0) {
+                        result.devices.forEach((device, index) => {
+                            const deviceElement = createDeviceElement(device);
+                            linkedDevicesList.appendChild(deviceElement);
+                            const option = document.createElement('option');
+                            option.value = device.id;
+                            option.textContent = device.device_name || `Device (${device.device_unique_id.substring(0, 6)}...)`;
+                            option.dataset.deviceName = option.textContent;
+                            deviceSelectDropdown.appendChild(option);
+                            // Use global variable 'currentDeviceId' if declared in chart script scope
+                            if (index === 0 && typeof currentDeviceId !== 'undefined') {
+                                option.selected = true;
+                                currentDeviceId = device.id;
+                            }
+                        });
+                        deviceSelectDropdown.disabled = false;
+                        return true;
+                    } else {
+                        noDevicesMsg.style.display = 'block';
+                        const option = document.createElement('option');
+                        option.value = ""; option.textContent = "-- No devices linked --";
+                        deviceSelectDropdown.appendChild(option);
+                        deviceSelectDropdown.disabled = true;
+                        if(typeof currentDeviceId !== 'undefined') currentDeviceId = null;
+                        return true;
+                    }
+                } else {
+                     throw new Error(result.message || 'Failed to load devices.');
+                }
+
+            } catch (error) {
+                console.error("Error fetching/rendering devices:", error);
+                settingsLoading.style.display = 'none';
+                settingsError.textContent = `Error: ${error.message}`;
+                settingsError.style.display = 'block';
+                deviceSelectDropdown.innerHTML = '<option value="">-- Error --</option>';
+                deviceSelectDropdown.disabled = true;
+                if(typeof currentDeviceId !== 'undefined') currentDeviceId = null;
+                if (error.message === 'Authentication required.') {
+                    setTimeout(() => { window.location.href = '/login'; }, 1500);
+                }
+                return false;
+            }
+        }
+
+        // --- Create Device Element HTML ---
+        function createDeviceElement(device) {
+            const div = document.createElement('div');
+            div.className = 'device-item';
+            div.dataset.deviceId = device.id;
+            const nameVal = device.device_name || '';
+            const minTempVal = (device.min_temp_threshold !== null && device.min_temp_threshold !== undefined) ? device.min_temp_threshold.toFixed(1) : '';
+            const maxTempVal = (device.max_temp_threshold !== null && device.max_temp_threshold !== undefined) ? device.max_temp_threshold.toFixed(1) : '';
+            const displayName = nameVal || 'Unnamed Device';
+            // Careful with quotes inside the template literal
+            div.innerHTML = `
+                <div class="device-info">
+                    <strong class="device-name-display">${displayName}</strong>
+                    <span class="device-id-display">ID: ${device.device_unique_id}</span>
+                </div>
+                <div class="device-settings-inputs">
+                     <div class="input-group">
+                         <label for="dev-name-${device.id}">Name:</label>
+                         <input type="text" id="dev-name-${device.id}" class="device-name-input" placeholder="Opt. Name" value="${nameVal}">
+                     </div>
+                     <div class="input-group">
+                         <label for="dev-min-${device.id}">Min °C:</label>
+                         <input type="number" id="dev-min-${device.id}" step="0.1" class="min-temp-input" placeholder="e.g. 20.0" value="${minTempVal}">
+                     </div>
+                     <div class="input-group">
+                         <label for="dev-max-${device.id}">Max °C:</label>
+                         <input type="number" id="dev-max-${device.id}" step="0.1" class="max-temp-input" placeholder="e.g. 30.0" value="${maxTempVal}">
+                     </div>
+                </div>
+                <div class="device-actions">
+                    <button class="save-settings-btn" title="Save"><i class='bx bx-save'></i> Save</button>
+                    <button class="unlink-device-btn" title="Unlink"><i class='bx bx-trash'></i> Unlink</button>
+                    <span class="device-status-msg" style="display: none; opacity: 0;"></span>
+                </div>`;
+            return div;
+        }
+
+        // --- Link Device Event Listener ---
+        if (linkDeviceBtn) {
+            linkDeviceBtn.addEventListener('click', async () => {
+                const uniqueId = newDeviceIdInput.value.trim();
+                const name = newDeviceNameInput.value.trim();
+                // Validation
+                if (!uniqueId) {
+                    showStatusMessage(linkDeviceStatus, 'Device ID required.', false);
+                    return;
+                }
+                if (uniqueId.length < 3 || uniqueId.length > 100 || !/^[a-zA-Z0-9-_]+$/.test(uniqueId)) {
+                    showStatusMessage(linkDeviceStatus, 'Invalid ID format.', false);
+                    return;
+                }
+
+                linkDeviceBtn.disabled = true;
+                linkDeviceBtn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Linking...";
+                linkDeviceStatus.style.display = 'none';
+                const formData = new FormData();
+                formData.append('device_unique_id', uniqueId);
+                if (name) {
+                    formData.append('device_name', name);
+                }
+
+                try {
+                    const response = await fetch('/api/user/devices/link', { method: 'POST', body: formData });
+
+                    if (response.status === 401) {
+                        console.warn('Auth required to link. Redirecting...');
+                        showStatusMessage(linkDeviceStatus, 'Login required. Redirecting...', false);
+                        setTimeout(() => { window.location.href = '/login'; }, 1500);
+                        return; // Exit early
+                    }
+
+                    if (!response.headers.get("content-type")?.includes("application/json")) {
+                        const txt = await response.text();
+                        console.error("Non-JSON response:", txt);
+                        throw new Error(`Server error ${response.status}`);
+                    }
+                    const result = await response.json();
+
+                    if (response.ok && result.success) {
+                        showStatusMessage(linkDeviceStatus, 'Linked!', true);
+                        newDeviceIdInput.value = '';
+                        newDeviceNameInput.value = '';
+                        if (result.device) {
+                             const newElement = createDeviceElement(result.device);
+                             linkedDevicesList.appendChild(newElement);
+                             highlightElement(newElement);
+                             noDevicesMsg.style.display = 'none';
+                             if(deviceSelectDropdown.options.length === 1 && deviceSelectDropdown.options[0].value === "") {
+                                 deviceSelectDropdown.innerHTML = ''; // Clear placeholder
+                             }
+                             const option = document.createElement('option');
+                             option.value = result.device.id;
+                             option.textContent = result.device.device_name || `Device (${result.device.device_unique_id.substring(0, 6)}...)`;
+                             option.dataset.deviceName = option.textContent;
+                             deviceSelectDropdown.appendChild(option);
+                             deviceSelectDropdown.value = result.device.id; // Select new device
+                             deviceSelectDropdown.disabled = false;
+                             // Update global state if available
+                             if(typeof currentDeviceId !== 'undefined') currentDeviceId = result.device.id;
+                             // Trigger updates if functions exist
+                             const currentRangeRef = (typeof currentRange !== 'undefined') ? currentRange : 'last24h'; // Use global or default
+                             const startDateRef = (typeof selectedStartDate !== 'undefined') ? selectedStartDate : null;
+                             const endDateRef = (typeof selectedEndDate !== 'undefined') ? selectedEndDate : null;
+                             if(typeof updateChart === 'function') updateChart(currentDeviceId, currentRangeRef, startDateRef ? startDateRef.toISOString().split('T')[0] : null, endDateRef ? endDateRef.toISOString().split('T')[0] : null);
+                             if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
                         } else {
-                            authSection.innerHTML = `
-                                <a href="/login">Login / Register</a>
-                            `;
-                            console.log("Auth section set to logged-out state.");
+                             // Fallback if device data missing
+                             if(typeof fetchAndRenderDevices === 'function' && typeof initializeDashboard === 'function') {
+                                 fetchAndRenderDevices().then(initializeDashboard);
+                             }
                         }
-                    })
-                    .catch(error => {
-                        console.error('Error updating auth section:', error);
-                        authSection.innerHTML = `
-                            <a href="/login">Login / Register</a>
-                        `;
-                    });
-            } else {
-                console.error("Element with ID 'user-auth-section' not found.");
-            }
+                    } else {
+                        showStatusMessage(linkDeviceStatus, result.message || `Error: ${response.status}`, false);
+                    }
+                } catch (error) {
+                    console.error("Err link device:", error);
+                     if (error.message && error.message.includes("non-JSON")) {
+                         showStatusMessage(linkDeviceStatus, 'Unexpected server response.', false);
+                     } else if (error.message !== 'Authentication required.'){
+                         showStatusMessage(linkDeviceStatus, `Network/server error: ${error.message}`, false);
+                     }
+                } finally {
+                    linkDeviceBtn.disabled = false;
+                    linkDeviceBtn.innerHTML = "<i class='bx bx-plus-circle'></i> Link Device";
+                }
+             });
+        } else {
+            console.error("Link btn missing.");
         }
 
-        // Call function immediately and on DOMContentLoaded to cover both cases
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', updateAuthSection);
+        // --- Settings/Unlink Event Delegation ---
+        if (linkedDevicesList) {
+            linkedDevicesList.addEventListener('click', async (event) => {
+                const target = event.target.closest('button'); if (!target) return;
+                const item = target.closest('.device-item'); if (!item) return;
+                const devId = item.dataset.deviceId;
+                const statusEl = item.querySelector('.device-status-msg');
+                if (!statusEl) { console.error("Status element missing in item"); return;} // Add check
+
+                // Save Settings
+                if (target.classList.contains('save-settings-btn')) {
+                    const nameIn = item.querySelector('.device-name-input');
+                    const minIn = item.querySelector('.min-temp-input');
+                    const maxIn = item.querySelector('.max-temp-input');
+                    if (!nameIn || !minIn || !maxIn) { console.error("Input elements missing in item:", devId); return; }
+
+                    const nameVal = nameIn.value.trim(); const minVal = minIn.value.trim(); const maxVal = maxIn.value.trim();
+                    let payload = { device_name: nameVal === '' ? null : nameVal };
+                    let hasErr = false; let minF = null; let maxF = null;
+
+                    // Validation
+                    if (minVal !== '') {
+                         minF = parseFloat(minVal);
+                         if (isNaN(minF)||(minF<-40||minF>85)) { showStatusMessage(statusEl, 'Invalid Min.', false); hasErr = true; }
+                         else payload.min_temp = minF;
+                    } else {
+                        payload.min_temp = null;
+                    }
+                    if (!hasErr && maxVal !== '') {
+                        maxF = parseFloat(maxVal);
+                        if (isNaN(maxF)||(maxF<-40||maxF>85)) { showStatusMessage(statusEl, 'Invalid Max.', false); hasErr = true; }
+                        else payload.max_temp = maxF;
+                     } else if (!hasErr) {
+                        payload.max_temp = null;
+                    }
+                    if (!hasErr && minF !== null && maxF !== null && minF >= maxF) {
+                        showStatusMessage(statusEl, 'Min >= Max.', false); hasErr = true;
+                    }
+                    if (hasErr) return;
+
+                    target.disabled = true; target.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Save..."; statusEl.style.display = 'none';
+                    try {
+                        const response = await fetch(`/api/user/devices/${devId}/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+
+                        if (response.status === 401) {
+                            console.warn('Auth required to save. Redirecting...');
+                            showStatusMessage(statusEl, 'Login required. Redirecting...', false);
+                            setTimeout(() => { window.location.href = '/login'; }, 1500);
+                            target.disabled=false; target.innerHTML="<i class='bx bx-save'></i> Save"; return;
+                        }
+
+                        if (!response.headers.get("content-type")?.includes("application/json")) { const txt = await response.text(); console.error("Non-JSON:", txt); throw new Error(`Server error ${response.status}`); }
+                        const result = await response.json();
+                        if (response.ok && result.success) {
+                            showStatusMessage(statusEl, 'Saved!', true); highlightElement(item);
+                            const nameDisp = item.querySelector('.device-name-display'); const newDispName = payload.device_name || 'Unnamed Device'; if (nameDisp) nameDisp.textContent = newDispName;
+                            const opt = deviceSelectDropdown.querySelector(`option[value="${devId}"]`);
+                            if (opt && opt.textContent !== newDispName) { opt.textContent = newDispName; opt.dataset.deviceName = newDispName; if (currentDeviceId == devId && typeof updateLatestReadingTitle === 'function') updateLatestReadingTitle(newDispName); }
+                        } else {
+                            showStatusMessage(statusEl, result.message || `Error ${response.status}`, false);
+                        }
+                    } catch (error) {
+                        console.error("Err save settings:", error);
+                         if (error.message && error.message.includes("non-JSON")){ showStatusMessage(statusEl, 'Unexpected server response.', false); }
+                         else if (error.message !== 'Authentication required.') { showStatusMessage(statusEl, `Network/server err: ${error.message}`, false); }
+                    } finally {
+                         target.disabled = false; target.innerHTML = "<i class='bx bx-save'></i> Save";
+                    }
+                }
+
+                // Unlink Device
+                if (target.classList.contains('unlink-device-btn')) {
+                    const devName = item.querySelector('.device-name-display')?.textContent || `ID ${devId}`;
+                    if (!confirm(`Unlink "${devName}"?`)) return;
+
+                    target.disabled = true; target.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Unlink...";
+                    const saveBtn = item.querySelector('.save-settings-btn'); if (saveBtn) saveBtn.disabled = true;
+                    statusEl.style.display = 'none';
+
+                    try {
+                        const response = await fetch(`/api/user/devices/${devId}/unlink`, { method: 'DELETE' });
+
+                        if (response.status === 401) {
+                            console.warn('Auth required to unlink. Redirecting...');
+                            showStatusMessage(linkDeviceStatus, 'Login required. Redirecting...', false); // Use general status msg
+                            setTimeout(() => { window.location.href = '/login'; }, 1500);
+                            target.disabled = false; target.innerHTML = "<i class='bx bx-trash'></i> Unlink"; if (saveBtn) saveBtn.disabled = false;
+                            return;
+                        }
+
+                        if (!response.headers.get("content-type")?.includes("application/json")) { const txt = await response.text(); console.error("Non-JSON:", txt); throw new Error(`Server error ${response.status}`); }
+                        const result = await response.json();
+
+                        if (response.ok && result.success) {
+                            item.style.transition = 'opacity .5s, transform .5s'; item.style.opacity = '0'; item.style.transform = 'scale(.95)';
+                            const opt = deviceSelectDropdown.querySelector(`option[value="${devId}"]`); if (opt) opt.remove();
+                            setTimeout(() => {
+                                 item.remove();
+                                 if (linkedDevicesList.children.length === 0) {
+                                      noDevicesMsg.style.display = 'block'; deviceSelectDropdown.innerHTML = '<option value="">-- No devices --</option>'; deviceSelectDropdown.disabled = true;
+                                      if(typeof currentDeviceId !== 'undefined') currentDeviceId = null;
+                                      if(typeof clearChart === 'function') clearChart("Link a device.");
+                                      if(typeof clearLatestReading === 'function') clearLatestReading("No device");
+                                 } else {
+                                      // Check if the unlinked device *was* selected
+                                      if (typeof currentDeviceId !== 'undefined' && currentDeviceId == devId) {
+                                           deviceSelectDropdown.selectedIndex = 0; // Select first remaining
+                                           currentDeviceId = deviceSelectDropdown.value;
+                                           // Update chart/readings for the newly selected device
+                                           const currentRangeRef = (typeof currentRange !== 'undefined') ? currentRange : 'last24h';
+                                           const startDateRef = (typeof selectedStartDate !== 'undefined') ? selectedStartDate : null;
+                                           const endDateRef = (typeof selectedEndDate !== 'undefined') ? selectedEndDate : null;
+                                           if(typeof updateChart === 'function') updateChart(currentDeviceId, currentRangeRef, startDateRef ? startDateRef.toISOString().split('T')[0] : null, endDateRef ? endDateRef.toISOString().split('T')[0] : null);
+                                           if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                                      }
+                                 }
+                            }, 500); // Wait for animation
+                        } else {
+                            showStatusMessage(statusEl, result.message || `Error ${response.status}`, false);
+                            target.disabled = false; target.innerHTML = "<i class='bx bx-trash'></i> Unlink"; if (saveBtn) saveBtn.disabled = false;
+                        }
+                    } catch (error) {
+                        console.error("Err unlink:", error);
+                        if (error.message && error.message.includes("non-JSON")) { showStatusMessage(statusEl, 'Unexpected server response.', false); }
+                         else if (error.message !== 'Authentication required.') { showStatusMessage(statusEl, `Network/server err: ${error.message}`, false); }
+                        target.disabled = false; target.innerHTML = "<i class='bx bx-trash'></i> Unlink"; if (saveBtn) saveBtn.disabled = false;
+                    }
+                }
+            });
         } else {
-            updateAuthSection();
+             console.error("Linked devices list missing.");
         }
-        
-        console.log("Auth update script loaded.");
+        console.log("Settings script defined.");
     </script>
 
+    <!-- Latest Reading Script -->
+    <script>
+        // --- Latest Reading Script ---
+        console.log("Latest Reading script starting.");
+        const latestDataDiv = document.getElementById('latest-data');
+        const latestReadingDeviceNameSpan = document.getElementById('latest-reading-device-name');
+        let latestReadingIntervalId = null;
+        const LATEST_READING_INTERVAL_MS = 20000;
+
+         function updateLatestReadingTitle(deviceName) {
+             // Use global escapeHTML if available, otherwise simple text setting
+             const safeName = (typeof escapeHTML === 'function') ? escapeHTML(deviceName) : deviceName;
+             if (latestReadingDeviceNameSpan) {
+                 latestReadingDeviceNameSpan.textContent = safeName ? safeName : "No device selected";
+             }
+         }
+
+        function clearLatestReading(message = "Loading...") {
+             if (latestDataDiv) {
+                 latestDataDiv.textContent = message;
+                 latestDataDiv.className = 'loading';
+             }
+             updateLatestReadingTitle(null);
+        }
+
+        async function fetchLatestReadings(deviceId) {
+            if (!latestDataDiv || !latestReadingDeviceNameSpan) { console.error("Latest reading elements missing."); return; }
+
+            // Use global deviceSelectDropdown if available
+            const currentDeviceDropdown = (typeof deviceSelectDropdown !== 'undefined') ? deviceSelectDropdown : null;
+            const selectedOption = currentDeviceDropdown ? currentDeviceDropdown.options[currentDeviceDropdown.selectedIndex] : null;
+            const deviceName = selectedOption ? selectedOption.dataset.deviceName : null;
+
+            updateLatestReadingTitle(deviceName);
+
+             if (!deviceId) {
+                 clearLatestReading("No device selected");
+                 stopLatestReadingRefresh();
+                 return;
+             }
+
+            latestDataDiv.textContent = 'Loading...';
+            latestDataDiv.className = 'loading';
+            startLatestReadingRefresh();
+
+            try {
+                const response = await fetch(`/api/readings/latest?device_id=${deviceId}`);
+
+                 if (response.status === 401) { throw new Error("Auth Required"); }
+
+                 if (!response.ok) {
+                     if(response.status === 404 || response.status === 403) throw new Error("Device not found/denied");
+                     throw new Error(`HTTP error ${response.status}`);
+                 }
+                const data = await response.json();
+
+                if (data && Object.keys(data).length > 0 && data.reading_time) {
+                   const time = new Date(data.reading_time).toLocaleString();
+                   const temp = (data.temperature !== null && data.temperature !== undefined) ? `${data.temperature.toFixed(1)}°C` : 'N/A';
+                   const humid = (data.humidity !== null && data.humidity !== undefined) ? `${data.humidity.toFixed(1)}%` : 'N/A';
+                   latestDataDiv.textContent = `Time : ${time}\nTemp : ${temp}\nHumid: ${humid}`;
+                   latestDataDiv.className = '';
+                } else {
+                    latestDataDiv.textContent = "No recent data for this device.";
+                     latestDataDiv.className = '';
+                }
+            } catch (error) {
+                console.error('Err fetch latest:', error);
+                latestDataDiv.textContent = `Error: ${error.message}`;
+                latestDataDiv.className = 'error';
+                if (error.message === "Auth Required"){
+                     stopLatestReadingRefresh();
+                     setTimeout(() => { window.location.href = '/login'; }, 1500);
+                }
+            }
+        }
+
+         function startLatestReadingRefresh() {
+             // Use global currentDeviceId if available
+             const deviceIdToCheck = (typeof currentDeviceId !== 'undefined') ? currentDeviceId : null;
+             if (latestReadingIntervalId === null && deviceIdToCheck) {
+                 console.log("Start latest reading poll.");
+                 latestReadingIntervalId = setInterval(() => {
+                     const currentDevIdNow = (typeof currentDeviceId !== 'undefined') ? currentDeviceId : null;
+                     if(currentDevIdNow) fetchLatestReadings(currentDevIdNow);
+                     else stopLatestReadingRefresh();
+                 }, LATEST_READING_INTERVAL_MS);
+             }
+         }
+
+         function stopLatestReadingRefresh() {
+              if (latestReadingIntervalId !== null) {
+                  console.log("Stop latest reading poll.");
+                  clearInterval(latestReadingIntervalId);
+                  latestReadingIntervalId = null;
+              }
+         }
+
+         console.log("Latest Reading script defined.");
+    </script>
+
+
+    <!-- Auth/Initialization Script (MUST RUN LAST) -->
+    <script>
+        // --- Auth/Initialization Script ---
+        console.log("Auth & Init script starting.");
+
+        // --- Helper: Escape HTML ---
+         function escapeHTML(str) {
+             if(str === null || str === undefined) return '';
+             return str.toString()
+                    .replace(/&/g, '&mp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;')
+                    .replace(/'/g, '&#39;');
+        }
+
+        // --- Main Auth Update Function ---
+        async function updateAuthAndInitialize() {
+            const authSection = document.getElementById('user-auth-section');
+            const settingsSectionEl = document.getElementById('settings-section');
+            console.log("Checking session status...");
+
+            if (!authSection) { console.error("Auth section element not found!"); return; }
+
+            try {
+                const response = await fetch('/api/session-check');
+                if (!response.ok) {
+                    console.error(`Auth check fail: ${response.status}`);
+                    // Assume logged out on error, call UI handler
+                     handleLogoutStateUI("Error checking status.");
+                     return; // Stop further processing on auth check error
+                }
+                const data = await response.json();
+                console.log('Session status:', data);
+
+                // Update loggedIn status attribute regardless
+                authSection.dataset.loggedIn = data && data.logged_in ? 'true' : 'false';
+
+                if (data && data.logged_in) {
+                    // --- Logged In State ---
+                    const userName = data.user_name ? escapeHTML(data.user_name) : 'User';
+                    authSection.innerHTML = `<span>Welcome, ${userName}!</span> | <a href="/api/logout" title="Logout"><i class='bx bx-log-out'></i> Logout</a>`;
+                    console.log("User is logged in.");
+
+                    if (settingsSectionEl) settingsSectionEl.style.display = 'block';
+                    else console.error("Settings section not found!");
+
+                    // Fetch devices and THEN initialize dashboard
+                    if (typeof fetchAndRenderDevices === 'function') {
+                         const devicesLoaded = await fetchAndRenderDevices(); // Wait for devices to load
+                         if (devicesLoaded) {
+                             console.log("Devices loaded/rendered, initializing dashboard.");
+                             if(typeof initializeDashboard === 'function') initializeDashboard();
+                             else console.error("initializeDashboard function not found!");
+                         } else {
+                              console.error("Failed to load devices, dashboard init may be incomplete.");
+                              // Still try to init dashboard, it should show 'no device' state
+                               if(typeof initializeDashboard === 'function') initializeDashboard();
+                         }
+                    } else {
+                        console.error("fetchAndRenderDevices function not found!");
+                        if(typeof initializeDashboard === 'function') initializeDashboard(); // Try init anyway
+                    }
+                } else {
+                    // --- Logged Out State ---
+                    handleLogoutStateUI(); // Use helper function
+                }
+
+            } catch (error) {
+                console.error('Error during auth check/initialization:', error);
+                 handleLogoutStateUI("Error checking status."); // Show error state
+            }
+        }
+
+        // --- Helper to handle UI updates for logged-out state ---
+        function handleLogoutStateUI(authMessage = null) {
+             const authSection = document.getElementById('user-auth-section');
+             const settingsSectionEl = document.getElementById('settings-section');
+             const deviceSelectDropdownEl = document.getElementById('deviceSelect'); // Added ref
+
+             if(authSection) {
+                 authSection.innerHTML = `<a href="/login"><i class='bx ${authMessage ? 'bx-error-circle' : 'bx-log-in'}'></i> Login / Register ${authMessage ? '(Error)' : ''}</a>`;
+                 authSection.dataset.loggedIn = 'false';
+             }
+             console.log("User is logged out or error occurred.");
+             if (settingsSectionEl) settingsSectionEl.style.display = 'none'; // Hide settings
+
+             // Initialize dashboard (should handle logged-out state)
+             if(typeof initializeDashboard === 'function') {
+                 initializeDashboard();
+             } else {
+                 console.error("initializeDashboard function not found!");
+             }
+             // Ensure refresh intervals are stopped
+             if(typeof stopAutoRefresh === 'function') stopAutoRefresh();
+             if(typeof stopLatestReadingRefresh === 'function') stopLatestReadingRefresh();
+             // Clear/disable device dropdown
+             if (deviceSelectDropdownEl) {
+                 deviceSelectDropdownEl.innerHTML = `<option value="">-- Please Login --</option>`;
+                 deviceSelectDropdownEl.disabled = true;
+             }
+        }
+
+        // --- Run Initialization ---
+        if (document.readyState === 'loading') {
+            document.addEventListener('DOMContentLoaded', updateAuthAndInitialize);
+        } else {
+            updateAuthAndInitialize(); // Run immediately if DOM already loaded
+        }
+        console.log("Auth & Init script finished.");
+    </script>
+    
 </body>
 </html>
