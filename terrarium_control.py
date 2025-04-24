@@ -358,7 +358,7 @@ def update_lcd(temp_c, humid, relay_state_str=None, status_msg=None):
         elif temp_c is not None and humid is not None:
             # Display Temp and Humidity on Line 1
             temp_f = temp_c * (9 / 5) + 32
-            line1 = f"Temp:{temp_c:>4.1f}C Hum:{humid:>3.0f}%"[:LCD_COLS] # Compact format
+            line1 = f"T:{temp_c:>4.1f}C H:{humid:>3.0f}%"[:LCD_COLS] # Compact format
             lcd.cursor_pos = (0, 0)
             lcd.write_string(line1.ljust(LCD_COLS))
 
