@@ -232,8 +232,8 @@ def update_lcd(temp_c, humid, status_msg=None):
             # Display Temp and Humidity
             temp_f = temp_c * (9 / 5) + 32
             # Format strings to fit columns
-            line1 = f"T:{temp_c:>5.1f}C{temp_f:>4.0f}F"[:LCD_COLS]
-            line2 = f"H:{humid:>6.1f}%"[:LCD_COLS]
+            line1 = f"Temp:{temp_c:>5.1f}C{temp_f:>4.0f}F"[:LCD_COLS]
+            line2 = f"Hum:{humid:>6.1f}%"[:LCD_COLS]
             lcd.cursor_pos = (0, 0)
             lcd.write_string(line1.ljust(LCD_COLS)) # Pad with spaces
             lcd.cursor_pos = (1, 0)
