@@ -4,23 +4,31 @@ import uuid
 import os
 import time
 import logging
-import requests                 # For sending data to web API
+import requests                 # For sending data to web API AND fetching settings
 import json                     # For formatting data as JSON
-import board                    # For GPIO pin definitions
+import board                    # For GPIO pin definitions (DHT Sensor)
 import adafruit_dht             # For DHT sensor
 import signal                   # For graceful shutdown
 import sys                      # For sys.exit
 from RPLCD.i2c import CharLCD   # Import LCD library
+from gpiozero import OutputDevice # For Relay control
+from gpiozero.pins.native import NativeFactory # For non-default pin factory
 
 # --- Configuration ---
 # Path for storing the Unique Device ID
 DEVICE_ID_FILE = '/home/DanDev/terrarium_device_id.txt'
 WEBAPP_URL = 'http://192.168.1.42:5000' 
 READING_API_ENDPOINT = f'{WEBAPP_URL}/api/device/readings'
+SETTINGS_API_ENDPOINT = f'{WEBAPP_URL}/api/device/settings'
 SENSOR_READ_INTERVAL = 60 # Seconds between readings/updates
+SETTINGS_FETCH_INTERVAL = 300 # Seconds between fetching custom threshold values
 
 # --- Sensor Config ---
 DHT_SENSOR_PIN = board.D16 # GPIO Pin for DHT22
+
+# --- Relay Config ---
+RELAY_PIN = 18 # GPIO Pin for the relay IN1
+RELAY_IS_ACTIVE_HIGH = False # Set based on relay test (False=LOW turns ON)
 
 # --- LCD Config ---
 LCD_I2C_ADDRESS = 0x27       # Default address, can be checked using `sudo i2cdetect -y 1`
@@ -44,7 +52,47 @@ logging.info("Terrarium Control Script Starting Up")
 # --- Global Variables ---
 dht_device = None     # Holds the sensor object
 lcd = None            # Holds the LCD object
+relay = None          # Holds the relay object
 shutting_down = False # Flag for graceful exit
+current_min_temp = None # Store fetched min temp
+current_max_temp = None # Store fetched max temp
+last_settings_fetch_time = 0 # Track when settings were last fetched
+
+try:
+    from gpiozero.pins.native import NativeFactory
+    OutputDevice.pin_factory = NativeFactory()
+    logging.info("Set gpiozero pin factory to Native.")
+except Exception as factory_ex:
+    logging.warning(f"Could not set NativeFactory, using gpiozero default: {factory_ex}")
+
+
+# --- Initialize Relay ---
+def initialize_relay():
+    """Initializes the relay GPIO pin."""
+    global relay
+    try:
+        # initial_value=True sets the pin HIGH initially.
+        # Since relay is active-low (active_high=False), HIGH means OFF.
+        initial_state_off = True # Start with heater OFF
+        relay = OutputDevice(RELAY_PIN, active_high=RELAY_IS_ACTIVE_HIGH, initial_value=initial_state_off)
+        logging.info(f"Relay control initialized on GPIO {RELAY_PIN}. Active-High: {RELAY_IS_ACTIVE_HIGH}. Initial state: {'OFF' if initial_state_off else 'ON'}")
+        # Short pause to ensure it's set
+        time.sleep(0.5) # Short pause for state to settle
+        try:
+            actual_pin_value = relay.value # Read the pin state (0=LOW, 1=HIGH)
+            expected_pin_value = 1 if initial_state_off else 0 # We expect HIGH (1) to be OFF for active-low
+            logging.info(f"Pin {RELAY_PIN} state after init: {'HIGH (1)' if actual_pin_value == 1 else 'LOW (0)'}. Expected for OFF state: {'HIGH (1)' if expected_pin_value == 1 else 'LOW (0)'}.")
+            if actual_pin_value != expected_pin_value:
+                 logging.warning(f"Relay pin state ({actual_pin_value}) does not match expected state for OFF ({expected_pin_value}) immediately after initialization!")
+        except Exception as read_err:
+             logging.warning(f"Could not read relay pin value after init: {read_err}")
+
+        return True
+    except Exception as e:
+        logging.critical(f"CRITICAL: Failed to initialize relay on GPIO {RELAY_PIN}: {e}")
+        logging.critical("Check GPIO pin number, permissions (run with sudo?), and potential conflicts.")
+        relay = None
+        return False
 
 # --- Device ID Management (Get or Generate) ---
 def get_or_generate_persistent_device_id():
@@ -249,7 +297,7 @@ def update_lcd(temp_c, humid, status_msg=None):
 # --- Cleanup Function ---
 def cleanup(signum=None, frame=None):
     """Handles resource cleanup on exit."""
-    global lcd, shutting_down, dht_device
+    global lcd, shutting_down, dht_device, relay
     if shutting_down: return # Prevent double execution
     shutting_down = True
 
@@ -266,6 +314,17 @@ def cleanup(signum=None, frame=None):
             time.sleep(SHUTDOWN_MSG_DELAY)
         except Exception as lcd_shutdown_msg_error:
             print(f"Warning: Could not display shutdown message on LCD: {lcd_shutdown_msg_error}")
+
+    # Clean up Relay object
+    if relay:
+        try:
+            print("Turning relay OFF and closing GPIO...")
+            relay.off() # Ensure heater is off
+            time.sleep(0.1) # Short pause
+            relay.close() # Release GPIO resources
+            print(f"Relay on GPIO {RELAY_PIN} turned OFF and closed.")
+        except Exception as e:
+            print(f"Warning: Error during relay cleanup: {e}")
 
     # Clean up DHT sensor object
     if dht_device:
@@ -299,11 +358,29 @@ if __name__ == "__main__":
     DEVICE_UNIQUE_ID = get_or_generate_persistent_device_id()
     sensor_ok = initialize_sensor()
     lcd_ok = initialize_lcd() # Initialize LCD
+    relay_ok = initialize_relay() # Initialize Relay
 
     # Critical check: Need ID and working Sensor
-    if not DEVICE_UNIQUE_ID or not sensor_ok:
-        logging.critical("CRITICAL FAILURE: Could not obtain Device ID or initialize sensor. Exiting.")
-        if lcd: update_lcd(None, None, "Init Error!")
+    if not DEVICE_UNIQUE_ID or not sensor_ok or not relay_ok: 
+        critical_msg = "Init Error:"
+        if not DEVICE_UNIQUE_ID: critical_msg += " No ID!"
+        if not sensor_ok: critical_msg += " Sensor Fail!"
+        if not relay_ok: critical_msg += " Relay Fail!"
+        logging.critical(f"CRITICAL FAILURE: {critical_msg}. Exiting.")
+        
+        # Display error on LCD if it initializes
+        if lcd: # Check if lcd object exists
+             try:
+                 lcd.clear()
+                 lcd.cursor_pos = (0, 0)
+                 lcd.write_string(critical_msg[:LCD_COLS]) # Show first line
+                 if len(critical_msg) > LCD_COLS:          # Show second line if needed
+                     lcd.cursor_pos = (1, 0)
+                     lcd.write_string(critical_msg[LCD_COLS:(LCD_COLS*2)])
+                 time.sleep(5) # Show message for 5s
+             except Exception as lcd_init_err:
+                 logging.error(f"Failed to display init error on LCD: {lcd_init_err}")
+
         exit(1) # Exit
 
     # Print Device ID for record (useful on first run)
@@ -316,7 +393,9 @@ if __name__ == "__main__":
     logging.info(f"Using Device ID: {DEVICE_UNIQUE_ID}")
 
     logging.info(f"Will send data to: {READING_API_ENDPOINT}")
+    logging.info(f"Will fetch settings from: {SETTINGS_API_ENDPOINT}/<ID>")
     logging.info(f"Sensor read interval: {SENSOR_READ_INTERVAL} seconds")
+    logging.info(f"Settings fetch interval: {SETTINGS_FETCH_INTERVAL} seconds")
 
     # --- Main Loop ---
     while not shutting_down:
