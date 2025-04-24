@@ -524,6 +524,62 @@ def receive_device_readings():
         if insert_cursor: insert_cursor.close()
         if conn and conn.is_connected(): conn.close()
 
+# --- API Route for Device Settings ---
+""" Connects to the database and queries the devices table for the min_temp_threshold and max_temp_threshold columns 
+where the device_unique_id matches the one provided in the URL. """
+#
+@app.route('/api/device/settings/<string:device_unique_id>', methods=['GET'])
+def get_device_settings(device_unique_id):
+    """
+    API endpoint for a device to fetch its own settings (thresholds).
+    Accessed via GET /api/device/settings/<device_unique_id>
+    """
+    if not device_unique_id:
+        app.logger.warning("Attempt to fetch settings with empty device ID.")
+        return jsonify({"error": "Device unique ID is required."}), 400
+
+    conn = None
+    cursor = None
+    app.logger.info(f"Device settings request received for ID: {device_unique_id}")
+
+    try:
+        conn = get_db_connection()
+        if not conn:
+            app.logger.error(f"Failed to get DB connection for settings request (Device: {device_unique_id})")
+            return jsonify({"error": "Database connection failed"}), 500
+
+        cursor = conn.cursor(dictionary=True)
+        sql = "SELECT min_temp_threshold, max_temp_threshold FROM devices WHERE device_unique_id = %s"
+        cursor.execute(sql, (device_unique_id,))
+        device_settings = cursor.fetchone()
+
+        if device_settings:
+            min_temp = device_settings.get('min_temp_threshold')
+            max_temp = device_settings.get('max_temp_threshold')
+
+            settings_data = {
+                'min_temp_threshold': float(min_temp) if min_temp is not None else None,
+                'max_temp_threshold': float(max_temp) if max_temp is not None else None
+            }
+            app.logger.info(f"Found settings for device {device_unique_id}: {settings_data}")
+            return jsonify(settings_data), 200
+        else:
+            app.logger.warning(f"Settings request failed: Device ID {device_unique_id} not found in database.")
+            return jsonify({"error": "Device not found"}), 404
+
+    except Error as e:
+        app.logger.error(f"Database error fetching settings for device {device_unique_id}: {e}")
+        return jsonify({"error": "Database error fetching settings."}), 500
+    except Exception as e:
+        app.logger.error(f"Unexpected error fetching settings for device {device_unique_id}: {e}", exc_info=True)
+        return jsonify({"error": "Internal server error."}), 500
+    finally:
+        if cursor:
+            cursor.close()
+        if conn and conn.is_connected():
+            conn.close()
+            app.logger.debug("DB connection closed for settings request.")
+
 # --- Run the App ---
 if __name__ == '__main__':
     app.logger.info("Starting Flask development server.")
