@@ -1,4 +1,5 @@
-# --- terrarium_control.py (Merged ID, API Sending, and LCD) ---
+#!/usr/bin/env python3
+# --- terrarium_control.py ---
 
 import uuid
 import os
@@ -21,17 +22,18 @@ WEBAPP_URL = 'http://192.168.1.42:5000'
 READING_API_ENDPOINT = f'{WEBAPP_URL}/api/device/readings'
 SETTINGS_API_ENDPOINT = f'{WEBAPP_URL}/api/device/settings'
 SENSOR_READ_INTERVAL = 60 # Seconds between readings/updates
-SETTINGS_FETCH_INTERVAL = 300 # Seconds between fetching custom threshold values
+SETTINGS_FETCH_INTERVAL = 300 # Seconds (5 minutes)
 
 # --- Sensor Config ---
 DHT_SENSOR_PIN = board.D16 # GPIO Pin for DHT22
 
 # --- Relay Config ---
 RELAY_PIN = 18 # GPIO Pin for the relay IN1
-RELAY_IS_ACTIVE_HIGH = False # Set based on relay test (False=LOW turns ON)
+# Active-HIGH (HIGH turns relay ON)
+RELAY_IS_ACTIVE_HIGH = False
 
 # --- LCD Config ---
-LCD_I2C_ADDRESS = 0x27       # Default address, can be checked using `sudo i2cdetect -y 1`
+LCD_I2C_ADDRESS = 0x27 # Default address, can be checked using `sudo i2cdetect -y 1`
 LCD_I2C_EXPANDER = 'PCF8574' # Common expander chip
 LCD_COLS = 16
 LCD_ROWS = 2
@@ -40,7 +42,7 @@ SHUTDOWN_MSG_DELAY = 2.0 # How long to show shutdown message
 # --- Logging Setup ---
 log_file = '/home/DanDev/terrarium_control.log' # Log file location
 logging.basicConfig(
-    level=logging.INFO, # Set to DEBUG for more detail if needed
+    level=logging.DEBUG, # Set to DEBUG for detailed logs, INFO for less verbosity
     format='%(asctime)s - %(levelname)s - %(module)s - %(message)s',
     handlers=[
         logging.FileHandler(log_file),
@@ -58,29 +60,33 @@ current_min_temp = None # Store fetched min temp
 current_max_temp = None # Store fetched max temp
 last_settings_fetch_time = 0 # Track when settings were last fetched
 
+# --- Force Native Pin Factory ---
 try:
     from gpiozero.pins.native import NativeFactory
     OutputDevice.pin_factory = NativeFactory()
     logging.info("Set gpiozero pin factory to Native.")
+except ImportError:
+     logging.info("NativeFactory not found, using default pin factory.")
 except Exception as factory_ex:
     logging.warning(f"Could not set NativeFactory, using gpiozero default: {factory_ex}")
-
 
 # --- Initialize Relay ---
 def initialize_relay():
     """Initializes the relay GPIO pin."""
     global relay
     try:
-        # initial_value=True sets the pin HIGH initially.
-        # Since relay is active-low (active_high=False), HIGH means OFF.
-        initial_state_off = True # Start with heater OFF
-        relay = OutputDevice(RELAY_PIN, active_high=RELAY_IS_ACTIVE_HIGH, initial_value=initial_state_off)
-        logging.info(f"Relay control initialized on GPIO {RELAY_PIN}. Active-High: {RELAY_IS_ACTIVE_HIGH}. Initial state: {'OFF' if initial_state_off else 'ON'}")
-        # Short pause to ensure it's set
-        time.sleep(0.5) # Short pause for state to settle
+        # Determine initial pin state for OFF based on active high/low
+        # Active-HIGH needs LOW pin for OFF.
+        initial_pin_state_for_off = not RELAY_IS_ACTIVE_HIGH # False (LOW) for Active-High
+
+        relay = OutputDevice(RELAY_PIN, active_high=RELAY_IS_ACTIVE_HIGH, initial_value=initial_pin_state_for_off)
+        logging.info(f"Relay control initialized on GPIO {RELAY_PIN}. Active-High: {RELAY_IS_ACTIVE_HIGH}. Initial state requested: OFF (Pin {'HIGH' if initial_pin_state_for_off else 'LOW'})")
+
+        # Verification check
+        time.sleep(0.2) # Short pause for state to settle
         try:
             actual_pin_value = relay.value # Read the pin state (0=LOW, 1=HIGH)
-            expected_pin_value = 1 if initial_state_off else 0 # We expect HIGH (1) to be OFF for active-low
+            expected_pin_value = 1 if initial_pin_state_for_off else 0
             logging.info(f"Pin {RELAY_PIN} state after init: {'HIGH (1)' if actual_pin_value == 1 else 'LOW (0)'}. Expected for OFF state: {'HIGH (1)' if expected_pin_value == 1 else 'LOW (0)'}.")
             if actual_pin_value != expected_pin_value:
                  logging.warning(f"Relay pin state ({actual_pin_value}) does not match expected state for OFF ({expected_pin_value}) immediately after initialization!")
@@ -151,6 +157,7 @@ def initialize_sensor():
             _ = dht_device.humidity    # Read humidity
             logging.info("Initial sensor read check successful.")
         except RuntimeError as init_read_err:
+            # DHT sensors need warm-up time, initial failure is common
             logging.warning(f"Initial sensor read failed: {init_read_err}. Will retry in main loop.")
         except Exception as init_read_generic_err:
              logging.warning(f"Initial sensor read failed (generic): {init_read_generic_err}. Will retry.")
@@ -160,8 +167,13 @@ def initialize_sensor():
         logging.critical(f"Check wiring on pin {DHT_SENSOR_PIN}, power, and sensor functionality.")
         dht_device = None # Ensure it's None
         return False
+    except NotImplementedError:
+        logging.critical("CRITICAL: Failed to initialize DHT22 sensor. 'pulseio' not supported on this platform/kernel?")
+        logging.critical("Try running without 'use_pulseio=True' or check kernel/library compatibility.")
+        dht_device = None
+        return False
     except Exception as e:
-        logging.critical(f"CRITICAL: Unexpected error initializing DHT22 sensor: {e}")
+        logging.critical(f"CRITICAL: Unexpected error initializing DHT22 sensor: {e}", exc_info=True)
         dht_device = None # Ensure it's None
         return False
 
@@ -197,11 +209,11 @@ def read_sensor():
         temperature_c = dht_device.temperature
         humidity = dht_device.humidity
 
-        # Validate readings
+        # Basic validation (DHT22 specific ranges)
         if humidity is not None and not (0 <= humidity <= 100):
             logging.warning(f"Discarding improbable humidity reading: {humidity:.1f}%")
             humidity = None
-        if temperature_c is not None and not (-40 <= temperature_c <= 85): # Range for DHT22
+        if temperature_c is not None and not (-40 <= temperature_c <= 80): # DHT22 typical range
             logging.warning(f"Discarding improbable temperature reading: {temperature_c:.1f}°C")
             temperature_c = None
 
@@ -213,10 +225,10 @@ def read_sensor():
             return None, None
 
     except RuntimeError as error:
+        # Log DHT Sensor errors as warning
         logging.warning(f"DHT22 Runtime error reading sensor: {error.args[0]}")
         return None, None
     except Exception as e:
-        # Catch other unexpected errors during reading
         logging.error(f"Unexpected error reading DHT22 sensor: {e}", exc_info=True)
         return None, None
 
@@ -235,9 +247,9 @@ def send_data_to_server(device_id, temperature, humidity):
     headers = {'Content-Type': 'application/json'}
 
     try:
-        logging.debug(f"Sending data to {READING_API_ENDPOINT}: {payload}")
-        response = requests.post(READING_API_ENDPOINT, headers=headers, data=json.dumps(payload), timeout=15)
-        response.raise_for_status()
+        logging.debug(f"Sending data to {READING_API_ENDPOINT}: {json.dumps(payload)}") # Log actual payload
+        response = requests.post(READING_API_ENDPOINT, headers=headers, data=json.dumps(payload), timeout=15) # 15s timeout
+        response.raise_for_status() # Raise HTTPError for bad responses 
         logging.info(f"Data sent successfully. Server response status: {response.status_code}")
         return True
 
@@ -246,50 +258,125 @@ def send_data_to_server(device_id, temperature, humidity):
     except requests.exceptions.Timeout as e:
         logging.error(f"Timeout sending data to {WEBAPP_URL}: {e}")
     except requests.exceptions.HTTPError as e:
-        # Log specific API errors returned by the server
-        error_detail = e.response.text # Get raw text as fallback
+        error_detail = f"Status code: {e.response.status_code}"
         try:
-            # Attempt to parse JSON response for structured error
-            error_json = e.response.json()
-            error_detail = error_json.get('error', error_detail)
+            error_json = e.response.json() # Try parsing server's JSON error
+            error_detail += f" - {error_json.get('error', e.response.text)}"
         except json.JSONDecodeError:
-            # Response was not JSON, stick with raw text
-            pass
-        logging.error(f"HTTP Error sending data: {e.response.status_code} - {error_detail}")
+            error_detail += f" - {e.response.text}" # Use raw text if not JSON
+        logging.error(f"HTTP Error sending data: {error_detail}")
     except requests.exceptions.RequestException as e:
-        logging.error(f"Error sending data request: {e}")
+        logging.error(f"Error during data sending request: {e}") # Catch other request errors
+    except Exception as e:
+        logging.error(f"Unexpected error sending data: {e}", exc_info=True)
 
     return False # Return False if any exception occurred
 
+# --- Settings Fetch Function ---
+def fetch_device_settings(device_id):
+    """Fetches min/max temperature settings from the web server."""
+    global current_min_temp, current_max_temp # Allow updating globals
+
+    if not device_id:
+        logging.error("Cannot fetch settings: Device ID is missing.")
+        return False # Indicate failure
+
+    url = f"{SETTINGS_API_ENDPOINT}/{device_id}"
+    logging.debug(f"Attempting to fetch settings from: {url}")
+
+    try:
+        response = requests.get(url, timeout=10) # 10 second timeout
+        response.raise_for_status() # Raise HTTPError for bad responses
+
+        settings = response.json()
+        logging.info(f"Successfully fetched settings: {settings}")
+
+        # Update global variables, converting None carefully
+        new_min = settings.get('min_temp_threshold')
+        new_max = settings.get('max_temp_threshold')
+
+        # Basic validation: if both are set, min should be less than max
+        if new_min is not None and new_max is not None:
+             try:
+                 if float(new_min) >= float(new_max):
+                     logging.warning(f"Fetched settings are invalid (min >= max): Min={new_min}, Max={new_max}. Ignoring update.")
+                     return False # Indicate invalid settings received
+             except (ValueError, TypeError) as conv_err:
+                  logging.warning(f"Fetched settings have non-numeric values: Min='{new_min}', Max='{new_max}'. Error: {conv_err}. Ignoring update.")
+                  return False
+
+
+        # Only update if different to avoid unnecessary logs
+        if new_min != current_min_temp or new_max != current_max_temp:
+             logging.info(f"Updating stored settings: Min={new_min}, Max={new_max}")
+             current_min_temp = new_min # Store as fetched (could be None or string/number)
+             current_max_temp = new_max
+        else:
+             logging.debug("Fetched settings are the same as current. No update needed.")
+
+        return True # Indicate success
+
+    except requests.exceptions.ConnectionError as e:
+        logging.error(f"Connection Error fetching settings from {url}: {e}")
+    except requests.exceptions.Timeout as e:
+        logging.error(f"Timeout fetching settings from {url}: {e}")
+    except requests.exceptions.HTTPError as e:
+        error_detail = f"Status code: {e.response.status_code}"
+        try:
+            error_json = e.response.json()
+            error_detail += f" - {error_json.get('error', e.response.text)}"
+        except json.JSONDecodeError:
+            error_detail += f" - {e.response.text}"
+        logging.error(f"HTTP Error fetching settings ({url}): {error_detail}")
+    except requests.exceptions.RequestException as e:
+        logging.error(f"Error during settings fetching request ({url}): {e}")
+    except json.JSONDecodeError as e:
+        logging.error(f"Error decoding settings JSON response from {url}: {e}")
+    except Exception as e:
+        logging.error(f"Unexpected error fetching settings ({url}): {e}", exc_info=True)
+
+    # If any exception occurred, return False
+    return False
+
 # --- LCD Update Function ---
-def update_lcd(temp_c, humid, status_msg=None):
-    """Updates the LCD display with sensor data or a status message."""
+def update_lcd(temp_c, humid, relay_state_str=None, status_msg=None):
+    """Updates the LCD display with sensor data, relay status, or a status message."""
     global lcd
     if not lcd: return # Do nothing if LCD failed to initialize
 
     try:
         lcd.clear() # Clear previous content
+
         if status_msg:
-            # Display status message (e.g., "Sensor Error")
+            # Display priority status message (e.g. "Sensor Error")
             lcd.cursor_pos = (0, 0)
-            lcd.write_string(status_msg[:LCD_COLS]) # Show first line
-            if len(status_msg) > LCD_COLS : # Show second line if needed
+            lcd.write_string(status_msg[:LCD_COLS])
+            if len(status_msg) > LCD_COLS :
                  lcd.cursor_pos = (1,0)
                  lcd.write_string(status_msg[LCD_COLS:(LCD_COLS*2)])
+
         elif temp_c is not None and humid is not None:
-            # Display Temp and Humidity
+            # Display Temp and Humidity on Line 1
             temp_f = temp_c * (9 / 5) + 32
-            # Format strings to fit columns
-            line1 = f"Temp:{temp_c:>5.1f}C{temp_f:>4.0f}F"[:LCD_COLS]
-            line2 = f"Hum:{humid:>6.1f}%"[:LCD_COLS]
+            line1 = f"Temp:{temp_c:>4.1f}C Hum:{humid:>3.0f}%"[:LCD_COLS] # Compact format
             lcd.cursor_pos = (0, 0)
-            lcd.write_string(line1.ljust(LCD_COLS)) # Pad with spaces
-            lcd.cursor_pos = (1, 0)
-            lcd.write_string(line2.ljust(LCD_COLS)) # Pad with spaces
+            lcd.write_string(line1.ljust(LCD_COLS))
+
+            # Display Relay Status on Line 2
+            if relay_state_str:
+                 line2 = relay_state_str[:LCD_COLS]
+                 lcd.cursor_pos = (1, 0)
+                 lcd.write_string(line2.ljust(LCD_COLS))
+            else: # Fallback if no relay status
+                 lcd.cursor_pos = (1,0)
+                 lcd.write_string("Relay: ---".ljust(LCD_COLS))
+
         else:
             # Fallback message if no error but data is None
             lcd.cursor_pos = (0,0)
-            lcd.write_string("Reading..."[:LCD_COLS])
+            lcd.write_string("Reading...".ljust(LCD_COLS))
+            lcd.cursor_pos = (1,0)
+            lcd.write_string(" ".ljust(LCD_COLS)) # Clear second line
 
     except Exception as e:
         logging.error(f"Failed to update LCD: {e}")
@@ -315,7 +402,7 @@ def cleanup(signum=None, frame=None):
         except Exception as lcd_shutdown_msg_error:
             print(f"Warning: Could not display shutdown message on LCD: {lcd_shutdown_msg_error}")
 
-    # Clean up Relay object
+    # Clean up Relay object FIRST (to ensure heater is OFF)
     if relay:
         try:
             print("Turning relay OFF and closing GPIO...")
@@ -329,8 +416,11 @@ def cleanup(signum=None, frame=None):
     # Clean up DHT sensor object
     if dht_device:
         try:
-            dht_device.exit()
-            print("DHT sensor resource released.")
+            if hasattr(dht_device, 'exit') and callable(dht_device.exit):
+                dht_device.exit()
+                print("DHT sensor resource released.")
+            else:
+                print("DHT sensor library does not have explicit exit method.")
         except Exception as e:
             print(f"Warning: Error exiting DHT sensor: {e}")
 
@@ -346,6 +436,7 @@ def cleanup(signum=None, frame=None):
            print(f"Error during final LCD cleanup: {e}")
 
     print("--- Terrarium Control Script Stopped ---")
+    logging.info("--- Terrarium Control Script Stopped ---") # Log it
     sys.exit(0) # Exit cleanly
 
 # --- Main Application Logic ---
@@ -357,85 +448,206 @@ if __name__ == "__main__":
     logging.info("--- Initializing Device ---")
     DEVICE_UNIQUE_ID = get_or_generate_persistent_device_id()
     sensor_ok = initialize_sensor()
-    lcd_ok = initialize_lcd() # Initialize LCD
-    relay_ok = initialize_relay() # Initialize Relay
+    lcd_ok = initialize_lcd()
+    relay_ok = initialize_relay()
 
-    # Critical check: Need ID and working Sensor
-    if not DEVICE_UNIQUE_ID or not sensor_ok or not relay_ok: 
+    # Critical check: Need at least ID, Sensor, and Relay to function
+    if not DEVICE_UNIQUE_ID or not sensor_ok or not relay_ok:
         critical_msg = "Init Error:"
         if not DEVICE_UNIQUE_ID: critical_msg += " No ID!"
-        if not sensor_ok: critical_msg += " Sensor Fail!"
-        if not relay_ok: critical_msg += " Relay Fail!"
+        if not sensor_ok: critical_msg += " Sensor!"
+        if not relay_ok: critical_msg += " Relay!"
         logging.critical(f"CRITICAL FAILURE: {critical_msg}. Exiting.")
-        
-        # Display error on LCD if it initializes
-        if lcd: # Check if lcd object exists
+
+        # Attempt to display error on LCD if it initializes
+        if lcd:
              try:
                  lcd.clear()
                  lcd.cursor_pos = (0, 0)
-                 lcd.write_string(critical_msg[:LCD_COLS]) # Show first line
-                 if len(critical_msg) > LCD_COLS:          # Show second line if needed
+                 lcd.write_string(critical_msg[:LCD_COLS])
+                 if len(critical_msg) > LCD_COLS:
                      lcd.cursor_pos = (1, 0)
                      lcd.write_string(critical_msg[LCD_COLS:(LCD_COLS*2)])
-                 time.sleep(5) # Show message for 5s
+                 time.sleep(5)
              except Exception as lcd_init_err:
                  logging.error(f"Failed to display init error on LCD: {lcd_init_err}")
 
-        exit(1) # Exit
+        exit(1) # Exit with error code
 
-    # Print Device ID for record (useful on first run)
+    # Print Device ID for user convenience
     print("\n" + "="*50)
     print("      TERRARIUM DEVICE ID INFORMATION")
     print("="*50)
     print(f" This device's Unique ID is: {DEVICE_UNIQUE_ID}")
-    print("\n -> Enter this ID in the web app settings to link.")
+    print("\n -> Link this ID in the web app settings.")
     print("="*50 + "\n")
     logging.info(f"Using Device ID: {DEVICE_UNIQUE_ID}")
 
-    logging.info(f"Will send data to: {READING_API_ENDPOINT}")
-    logging.info(f"Will fetch settings from: {SETTINGS_API_ENDPOINT}/<ID>")
+    # Log configuration details
+    logging.info(f"Web App URL: {WEBAPP_URL}")
+    logging.info(f"Reading API endpoint: {READING_API_ENDPOINT}")
+    logging.info(f"Settings API endpoint: {SETTINGS_API_ENDPOINT}/<ID>")
     logging.info(f"Sensor read interval: {SENSOR_READ_INTERVAL} seconds")
     logging.info(f"Settings fetch interval: {SETTINGS_FETCH_INTERVAL} seconds")
+    logging.info(f"Relay Pin: {RELAY_PIN}, Active-High: {RELAY_IS_ACTIVE_HIGH}")
+
 
     # --- Main Loop ---
+    logging.info("Starting main control loop...")
     while not shutting_down:
         loop_start_time = time.monotonic()
-        error_message_for_lcd = None # Store potential error for LCD update
+        error_message_for_lcd = None # Store specific error message for LCD display
+        relay_status_str = "Relay: ---" # Default relay status string
 
-        try:
+        try: # *** START OF MAIN TRY BLOCK ***
+            # --- Fetch Settings Periodically ---
+            current_time = time.monotonic()
+            # Fetch settings on first run OR if interval has passed
+            if last_settings_fetch_time == 0 or (current_time - last_settings_fetch_time >= SETTINGS_FETCH_INTERVAL):
+                logging.info("Time to fetch device settings...")
+                if fetch_device_settings(DEVICE_UNIQUE_ID):
+                    last_settings_fetch_time = current_time # Update time only on success
+                else:
+                    logging.warning("Failed to fetch/update settings. Using previous values (if any).")
+                    # Consider what happens if fetch fails repeatedly - should we disable heating?
+                    # For now, it uses old values or None if never fetched.
+
+            # --- Read Sensor ---
             temp, humid = read_sensor()
 
+            # --- Send Data to Server ---
             if temp is not None and humid is not None:
-                logging.info(f"Sensor values valid. Calling send_data_to_server...")
                 send_data_to_server(DEVICE_UNIQUE_ID, temp, humid)
-                # Update LCD with data
-                update_lcd(temp, humid)
             else:
-                logging.debug("Sensor read failed or returned invalid data this cycle.")
+                logging.warning("Sensor read failed or returned invalid data this cycle.")
                 error_message_for_lcd = "Sensor Error" # Set error message for LCD
-                update_lcd(None, None, error_message_for_lcd) # Update LCD to show error
 
-            # Calculate time elapsed and sleep for the remaining interval
+            # --- Heating Control Logic (Hysteresis) ---
+            # Check if relay was initialized successfully
+            if relay is None:
+                logging.error("Cannot perform heating control: Relay not initialized.")
+                relay_status_str = "Relay: ERROR"
+                error_message_for_lcd = "Relay Error" # Prioritize relay error on LCD
+            # Check if we have a valid temperature reading
+            elif temp is None:
+                logging.warning("Cannot perform heating control: Invalid temperature reading.")
+                # Turn OFF for safety if sensor fails
+                if relay.is_active:
+                    logging.warning("Turning relay OFF due to invalid temperature reading.")
+                    relay.off()
+                relay_status_str = "Relay: OFF (Safe)"
+                error_message_for_lcd = "Sensor Error" # Show sensor error on LCD
+            # Proceed with logic if relay and temp are valid
+            else:
+                temp_float = float(temp) # Ensure temp is float for comparison
+                min_temp_float = None
+                max_temp_float = None
+
+                # Safely convert thresholds to float, handle potential errors/None
+                try:
+                    if current_min_temp is not None:
+                        min_temp_float = float(current_min_temp)
+                    if current_max_temp is not None:
+                        max_temp_float = float(current_max_temp)
+                except (ValueError, TypeError) as conv_err:
+                     logging.error(f"Invalid threshold values stored: Min='{current_min_temp}', Max='{current_max_temp}'. Error: {conv_err}. Cannot control heating.")
+                     # Turn OFF if thresholds are invalid?
+                     if relay.is_active:
+                         logging.warning("Turning relay OFF due to invalid stored thresholds.")
+                         relay.off()
+                     relay_status_str = "Relay: OFF (Cfg Err)"
+                     error_message_for_lcd = "Settings Error"
+                else:
+                    # Thresholds are valid numbers (or None)
+                    relay_is_currently_on = relay.is_active # Check current state BEFORE making decisions
+
+                    # Log current state for debugging
+                    logging.debug(f"Control Logic Check: Temp={temp_float}, Min={min_temp_float}, Max={max_temp_float}, Relay Currently ON={relay_is_currently_on}")
+
+                    # --- Decision Making ---
+                    action_taken = False # Flag to track if we changed state
+
+                    if not relay_is_currently_on:
+                        # --- Heater is OFF: Check if we need to turn ON ---
+                        # Requires min_temp to be set and temp to be below it
+                        if min_temp_float is not None and temp_float < min_temp_float:
+                            logging.info(f"Temperature ({temp_float:.1f}°C) is BELOW minimum ({min_temp_float:.1f}°C) and relay is OFF. Turning relay ON.")
+                            relay.on()
+                            action_taken = True
+                        else:
+                            # Heater is OFF and Temp is NOT below minimum (or min not set) -> Keep OFF
+                            logging.debug(f"Heater is OFF. Temp ({temp_float:.1f}°C) not below min ({min_temp_float}). Keeping relay OFF.")
+                            # No action needed, relay stays OFF
+
+                    else: # relay_is_currently_on is True
+                        # --- Heater is ON: Check if we need to turn OFF ---
+                        # Requires max_temp to be set and temp to be at or above it
+                        if max_temp_float is not None and temp_float >= max_temp_float:
+                            logging.info(f"Temperature ({temp_float:.1f}°C) is AT or ABOVE maximum ({max_temp_float:.1f}°C) and relay is ON. Turning relay OFF.")
+                            relay.off()
+                            action_taken = True
+                        else:
+                            # Heater is ON and Temp is NOT above maximum (or max not set) -> Keep ON
+                            logging.debug(f"Heater is ON. Temp ({temp_float:.1f}°C) not above max ({max_temp_float}). Keeping relay ON.")
+                            # No action needed, relay stays ON
+
+                    # --- Set Status String for LCD ---
+                    final_relay_state = relay.is_active # Check state AFTER potential changes
+                    if final_relay_state:
+                        relay_status_str = "Relay: ON (Heat)"
+                    else:
+                        relay_status_str = "Relay: OFF"
+                    # Log if no action was taken but state is maintained
+                    if not action_taken:
+                         logging.debug(f"No state change required. Maintained relay state: {'ON' if final_relay_state else 'OFF'}")
+
+
+            # --- Update LCD ---
+            # Pass relay status string to the LCD function
+            # Status_msg (like "Sensor Error") will override normal display if present
+            update_lcd(temp, humid, relay_status_str, error_message_for_lcd)
+
+            # --- Calculate Sleep Time ---
             loop_end_time = time.monotonic()
             time_elapsed = loop_end_time - loop_start_time
-            sleep_time = max(0, SENSOR_READ_INTERVAL - time_elapsed) # Ensure sleep is not negative
+            sleep_time = max(0, SENSOR_READ_INTERVAL - time_elapsed) # Ensure non-negative sleep
 
             logging.debug(f"Loop took {time_elapsed:.2f}s. Sleeping for {sleep_time:.2f} seconds...")
 
             # Use short sleeps to remain responsive to shutdown signals
             sleep_end_time = time.monotonic() + sleep_time
             while time.monotonic() < sleep_end_time and not shutting_down:
-                time.sleep(0.1) # Check every 100ms
+                time.sleep(0.1) # Check for shutdown signal every 100ms
 
-        except KeyboardInterrupt: # Should be caught by signal handler, but good safety net
-             logging.info("KeyboardInterrupt in main loop. Initiating cleanup.")
-             cleanup(signal.SIGINT) # Explicitly call cleanup
+        except KeyboardInterrupt:
+             # Already handled by signal handler, but good practice to have also in loop
+             logging.info("KeyboardInterrupt detected in main loop. Exiting loop.")
+             if not shutting_down: # If signal handler didn't run first
+                 cleanup(signal.SIGINT)
+             break # Exit while loop
+
         except Exception as e:
              logging.error(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
-             update_lcd(None, None, "System Error") # Show error on LCD
-             # Prevent rapid looping on persistent errors
-             time.sleep(10)
+             # Turn off relay on unexpected errors for safety
+             if relay and relay.is_active:
+                 try:
+                     logging.warning("Turning relay OFF due to unexpected error in main loop.")
+                     relay.off()
+                     relay_status_str = "Relay: OFF (ERR)"
+                 except Exception as relay_err:
+                     logging.error(f"Failed to turn off relay during error handling: {relay_err}")
+                     relay_status_str = "Relay: ERR!"
 
-    # Cleanup is normally handled by the signal handler, but call JIC if loop exits otherwise
+             # Display error on LCD
+             update_lcd(None, None, relay_status_str, "System Error")
+
+             # Prevent rapid looping on persistent errors
+             logging.info("Sleeping for 15 seconds due to error...")
+             time.sleep(15)
+
+
+    logging.info("Main control loop finished.")
+    # Cleanup is normally called by the signal handler, but call just in case loop exited non-standardly
     if not shutting_down:
+         logging.warning("Loop exited without shutdown signal. Calling cleanup.")
          cleanup()
