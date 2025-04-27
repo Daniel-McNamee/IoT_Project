@@ -24,6 +24,8 @@ READING_API_ENDPOINT = f'{WEBAPP_URL}/api/device/readings'
 SETTINGS_API_ENDPOINT = f'{WEBAPP_URL}/api/device/settings'
 SENSOR_READ_INTERVAL = 60 # Seconds between readings/updates
 SETTINGS_FETCH_INTERVAL = 300 # Seconds (5 minutes)
+MAX_HEATER_ON_DURATION = 15 * 60 # Seconds (15 minutes)
+MIN_HEATER_OFF_COOLDOWN = 10 * 60  # Seconds (10 minutes)
 
 # --- Sensor Config ---
 DHT_SENSOR_PIN = board.D16 # GPIO Pin for DHT22
@@ -62,6 +64,8 @@ current_max_temp = None # Store fetched max temp
 current_heating_off_start = None # Will store time_obj or None
 current_heating_off_end = None   # Will store time_obj or None
 last_settings_fetch_time = 0 # Track when settings were last fetched
+relay_on_start_time = None       # Track time when relay was turned ON
+force_heater_off_until = None    # Track time until forced OFF period ends
 
 # --- Force Native Pin Factory ---
 try:
@@ -623,67 +627,174 @@ if __name__ == "__main__":
                      else:
                           logging.debug("Relay already OFF during scheduled off period.")
                      relay_status_str = "Relay: OFF (Sched)"
-                     # Skip the temperature-based logic below
+                     # Skip the temperature logic below
 
                  else:
                      # --- Time is outside scheduled OFF period (or period not set) ---
                      if isinstance(current_heating_off_start, time_obj): # Log only if period is defined
                           logging.debug(f"Current time is OUTSIDE OFF period. Applying temperature logic.")
 
-                     # --- Temperature-Based Control Logic ---
-                     min_temp_float = None
-                     max_temp_float = None
-                     try:
-                         if current_min_temp is not None: min_temp_float = float(current_min_temp)
-                         if current_max_temp is not None: max_temp_float = float(current_max_temp)
-                     except (ValueError, TypeError) as conv_err:
-                         logging.error(f"Invalid threshold values stored: Min='{current_min_temp}', Max='{current_max_temp}'. Error: {conv_err}. Cannot control heating.")
+            # --- Heating Control Logic (Check Relay & Sensor First) ---
+            if relay is None:
+                logging.error("Cannot perform heating control: Relay not initialized.")
+                relay_status_str = "Relay: ERROR"
+                error_message_for_lcd = "Relay Error" # Prioritize relay error
+            elif temp is None:
+                logging.warning("Cannot perform heating control: Invalid temperature reading.")
+                # Turn OFF for safety if sensor fails WHILE relay is ON
+                if relay.is_active:
+                    logging.warning("Turning relay OFF due to invalid temperature reading.")
+                    try:
+                        relay.off()
+                        relay_on_start_time = None # Reset timer if forced off by sensor error
+                    except Exception as e: logging.error(f"Failed to turn OFF relay during sensor error: {e}")
+                relay_status_str = "Relay: OFF (Safe)"
+                if not error_message_for_lcd: error_message_for_lcd = "Sensor Error" # Show sensor error if no other error
+            else:
+                 # Relay OK, Sensor OK -> Proceed with Time and Temp Logic
+                 temp_float = float(temp) # Temp is not None here
+                 now_time = datetime.now().time() # Get current time for scheduled off check
+                 current_monotonic_time = time.monotonic() # Get current time for duration checks
+
+                 # --- Check for forced OFF cooldown period ---
+                 is_in_forced_cooldown = False
+                 if force_heater_off_until is not None:
+                     if current_monotonic_time < force_heater_off_until:
+                         logging.info(f"Heater is in forced cooldown period (until {force_heater_off_until:.1f}). Keeping relay OFF.")
                          if relay.is_active:
-                             logging.warning("Turning relay OFF due to invalid stored thresholds.")
-                             try: relay.off()
-                             except Exception as e: logging.error(f"Failed to turn OFF relay during threshold error: {e}")
-                         relay_status_str = "Relay: OFF (Cfg Err)"
-                         error_message_for_lcd = "Settings Error"
+                             try:
+                                 relay.off()
+                                 relay_on_start_time = None # Ensure timer is reset
+                             except Exception as e: logging.error(f"Failed to turn OFF relay during forced cooldown: {e}")
+                         relay_status_str = "Relay: OFF (Cool)"
+                         is_in_forced_cooldown = True
                      else:
-                         # Thresholds are valid numbers (or None)
-                         relay_is_currently_on = relay.is_active
-                         logging.debug(f"Temp Control Check: Temp={temp_float:.1f}, Min={min_temp_float}, Max={max_temp_float}, Relay ON={relay_is_currently_on}")
-                         action_taken = False
+                         # Cooldown finished
+                         logging.info(f"Forced heater cooldown period finished at {current_monotonic_time:.1f}.")
+                         force_heater_off_until = None # Clear the cooldown flag
 
-                         # Determine desired state based on temp and thresholds
-                         desired_state_on = False
-                         if relay_is_currently_on:
-                              # If ON, it should turn OFF if temp >= max (and max is set)
-                              if max_temp_float is not None and temp_float >= max_temp_float:
-                                  desired_state_on = False
-                              else:
-                                   desired_state_on = True # Stay ON if below max or max not set
+                 # --- Check for Scheduled Off Period (only if not in cooldown) ---
+                 is_in_scheduled_off = False
+                 if not is_in_forced_cooldown:
+                     if isinstance(current_heating_off_start, time_obj) and isinstance(current_heating_off_end, time_obj):
+                         start_off = current_heating_off_start
+                         end_off = current_heating_off_end
+                         logging.debug(f"Checking time {now_time.strftime('%H:%M:%S')} against OFF period: {start_off.strftime('%H:%M:%S')} - {end_off.strftime('%H:%M:%S')}")
+                         # Handle overnight period
+                         if start_off > end_off:
+                             if now_time >= start_off or now_time < end_off: is_in_scheduled_off = True
+                         # Handle same-day period
                          else:
-                              # If OFF, it should turn ON if temp < min (and min is set)
-                              if min_temp_float is not None and temp_float < min_temp_float:
-                                  desired_state_on = True
-                              else:
-                                   desired_state_on = False # Stay OFF if above min or min not set
+                             if start_off <= now_time < end_off: is_in_scheduled_off = True
 
-                         # Apply the change if needed
-                         if desired_state_on and not relay_is_currently_on:
-                             logging.info(f"Temp ({temp_float:.1f}°C) < Min ({min_temp_float:.1f}°C). Turning relay ON.")
-                             try: relay.on(); action_taken = True
-                             except Exception as e: logging.error(f"Failed to turn ON relay: {e}")
-                         elif not desired_state_on and relay_is_currently_on:
-                             logging.info(f"Temp ({temp_float:.1f}°C) >= Max ({max_temp_float:.1f}°C) or Min not met. Turning relay OFF.")
-                             try: relay.off(); action_taken = True
-                             except Exception as e: logging.error(f"Failed to turn OFF relay: {e}")
+                         if is_in_scheduled_off:
+                             logging.info(f"Current time is WITHIN scheduled OFF period.")
+                             if relay.is_active:
+                                 logging.info("Turning relay OFF due to scheduled off period.")
+                                 try:
+                                     relay.off()
+                                     relay_on_start_time = None # Reset ON timer
+                                 except Exception as e: logging.error(f"Failed to turn OFF relay during scheduled period: {e}")
+                             else:
+                                 logging.debug("Relay already OFF during scheduled off period.")
+                             relay_status_str = "Relay: OFF (Sched)"
+                             # Skip remaining logic for this cycle
 
-                         # Set Status String based on the relay state after attempting changes
-                         final_relay_state = relay.is_active
-                         if final_relay_state:
-                             relay_status_str = "Relay: ON (Heat)"
-                         else:
-                             relay_status_str = "Relay: OFF"
+                 # --- Apply Temperature & Max ON Time Logic (only if NOT in cooldown AND NOT in scheduled off) ---
+                 if not is_in_forced_cooldown and not is_in_scheduled_off:
+                     if isinstance(current_heating_off_start, time_obj): # Log only if scheduled period exists
+                         logging.debug(f"Current time is OUTSIDE OFF period. Applying temperature/limit logic.")
+                     else: # Log if no schedule exists
+                         logging.debug(f"No scheduled OFF period set. Applying temperature/limit logic.")
 
-                         if not action_taken:
-                              logging.debug(f"No temp state change needed. Relay maintained: {'ON' if final_relay_state else 'OFF'}")
+                     # --- Check Max ON Time Limit (only if relay is currently ON) ---
+                     max_on_time_exceeded = False
+                     if relay.is_active and relay_on_start_time is not None:
+                         time_on = current_monotonic_time - relay_on_start_time
+                         logging.debug(f"Heater ON check: Currently ON for {time_on:.1f}s (Limit: {MAX_HEATER_ON_DURATION}s).")
+                         if time_on > MAX_HEATER_ON_DURATION:
+                             logging.warning(f"Heater has been ON for {time_on:.1f}s, exceeding MAX limit of {MAX_HEATER_ON_DURATION}s. Forcing OFF and starting cooldown.")
+                             max_on_time_exceeded = True
+                             force_heater_off_until = current_monotonic_time + MIN_HEATER_OFF_COOLDOWN # Schedule cooldown
+                             logging.info(f"Forced cooldown active until monotonic time: {force_heater_off_until:.1f}")
+                             try:
+                                 relay.off()
+                                 relay_on_start_time = None # Reset timer
+                             except Exception as e: logging.error(f"Failed to turn OFF relay after max ON time: {e}")
+                             relay_status_str = "Relay: OFF (Limit)" # Set status for this cycle
+                             # Skip temperature logic below if limit exceeded
+
+                     # --- Apply Temperature Logic (only if max ON time NOT exceeded) ---
+                     if not max_on_time_exceeded:
+                         min_temp_float = None
+                         max_temp_float = None
+                         threshold_error = False
+                         try:
+                             if current_min_temp is not None: min_temp_float = float(current_min_temp)
+                             if current_max_temp is not None: max_temp_float = float(current_max_temp)
+                         except (ValueError, TypeError) as conv_err:
+                             logging.error(f"Invalid threshold values stored: Min='{current_min_temp}', Max='{current_max_temp}'. Error: {conv_err}. Cannot control heating.")
+                             if relay.is_active:
+                                 logging.warning("Turning relay OFF due to invalid stored thresholds.")
+                                 try:
+                                     relay.off()
+                                     relay_on_start_time = None # Reset timer
+                                 except Exception as e: logging.error(f"Failed to turn OFF relay during threshold error: {e}")
+                             relay_status_str = "Relay: OFF (Cfg Err)"
+                             error_message_for_lcd = "Settings Error"
+                             threshold_error = True
+
+                         # Proceed only if thresholds are valid
+                         if not threshold_error:
+                             relay_is_currently_on = relay.is_active # Re-check state as it might have changed due to errors above
+                             logging.debug(f"Temp Control Check: Temp={temp_float:.1f}, Min={min_temp_float}, Max={max_temp_float}, Relay ON={relay_is_currently_on}")
+                             action_taken = False
+
+                             # Determine desired state based on temp and thresholds
+                             desired_state_on = False
+                             if relay_is_currently_on:
+                                 # If ON, it should turn OFF if temp >= max (and max is set)
+                                 if max_temp_float is not None and temp_float >= max_temp_float:
+                                     desired_state_on = False
+                                 else:
+                                     desired_state_on = True # Stay ON if below max or max not set
+                             else:
+                                 # If OFF, it should turn ON if temp < min (and min is set)
+                                 if min_temp_float is not None and temp_float < min_temp_float:
+                                     desired_state_on = True
+                                 else:
+                                     desired_state_on = False # Stay OFF if above min or min not set
+
+                             # Apply the change if needed
+                             if desired_state_on and not relay_is_currently_on:
+                                 logging.info(f"Temp ({temp_float:.1f}°C) < Min ({min_temp_float:.1f}°C). Turning relay ON.")
+                                 try:
+                                     relay.on()
+                                     relay_on_start_time = current_monotonic_time # START TIMER 
+                                     action_taken = True
+                                 except Exception as e: logging.error(f"Failed to turn ON relay: {e}")
+                             elif not desired_state_on and relay_is_currently_on:
+                                 logging.info(f"Temp ({temp_float:.1f}°C) >= Max ({max_temp_float:.1f}°C) or Min not met. Turning relay OFF.")
+                                 try:
+                                     relay.off()
+                                     relay_on_start_time = None # STOP TIMER 
+                                     action_taken = True
+                                 except Exception as e: logging.error(f"Failed to turn OFF relay: {e}")
+
+                             # Set Status String based on the ACTUAL relay state after attempting changes
+                             # Only set default OFF/ON if no specific status was set earlier
+                             final_relay_state = relay.is_active
+                             if relay_status_str == "Relay: ---": # Check if status is still default
+                                 if final_relay_state:
+                                     relay_status_str = "Relay: ON (Heat)"
+                                 else:
+                                     relay_status_str = "Relay: OFF"
+
+                             if not action_taken and relay_status_str == "Relay: ---": # Log only if no action AND no specific status
+                                  logging.debug(f"No temp state change needed. Relay maintained: {'ON' if final_relay_state else 'OFF'}")
+                                  # Update status if still default
+                                  relay_status_str = "Relay: ON (Heat)" if final_relay_state else "Relay: OFF"
+
 
             # --- Update LCD ---
             update_lcd(temp, humid, relay_status_str, error_message_for_lcd)
@@ -691,15 +802,16 @@ if __name__ == "__main__":
             # --- Calculate Sleep Time ---
             loop_end_time = time.monotonic()
             time_elapsed = loop_end_time - loop_start_time
-            sleep_time = max(0, SENSOR_READ_INTERVAL - time_elapsed)
+            sleep_time = max(0, SENSOR_READ_INTERVAL - time_elapsed) # Ensure non-negative sleep
 
             logging.debug(f"Loop took {time_elapsed:.2f}s. Sleeping for {sleep_time:.2f} seconds...")
 
             # Use short sleeps to remain responsive to shutdown signals
             sleep_end_time = time.monotonic() + sleep_time
             while time.monotonic() < sleep_end_time and not shutting_down:
-                time.sleep(0.1)
+                time.sleep(0.1) # Check for shutdown signal every 100ms
 
+        # --- except blocks ---
         except KeyboardInterrupt:
              logging.info("KeyboardInterrupt detected in main loop. Exiting loop.")
              if not shutting_down: cleanup(signal.SIGINT)
@@ -707,24 +819,30 @@ if __name__ == "__main__":
 
         except Exception as e:
              logging.error(f"An unexpected error occurred in the main loop: {e}", exc_info=True)
+             # Turn off relay on unexpected errors for safety
              if relay and relay.is_active:
                  try:
                      logging.warning("Turning relay OFF due to unexpected error in main loop.")
                      relay.off()
+                     relay_on_start_time = None # Reset timer on error too
                      relay_status_str = "Relay: OFF (ERR)"
                  except Exception as relay_err:
                      logging.error(f"Failed to turn off relay during error handling: {relay_err}")
                      relay_status_str = "Relay: ERR!"
              else:
-                  relay_status_str = "Relay: ERR!" # Ensure status shows error
+                  # If relay wasn't active or doesn't exist, still indicate error
+                  relay_status_str = "Relay: ERR!" if relay else "Relay: ERROR" # Adjust if relay is None
 
              # Display error on LCD
              update_lcd(None, None, relay_status_str, "System Error")
+
+             # Prevent rapid looping on persistent errors
              logging.info("Sleeping for 15 seconds due to error...")
              time.sleep(15)
 
 
     logging.info("Main control loop finished.")
+    # Cleanup is normally called by the signal handler, but call just in case loop exited non-standardly
     if not shutting_down:
          logging.warning("Loop exited without shutdown signal. Calling cleanup.")
          cleanup()
