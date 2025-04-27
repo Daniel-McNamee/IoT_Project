@@ -58,12 +58,15 @@
         .device-info { flex-grow: 1; min-width: 180px; }
         .device-info strong { display: block; font-size: 1.15em; color: #333; margin-bottom: 5px; font-weight: 600; }
         .device-info .device-id-display { font-size: 0.9em; color: #777; font-family: 'IBM Plex Mono', monospace; word-break: break-all; }
-        .device-settings-inputs { display: flex; flex-wrap: wrap; gap: 10px 15px; align-items: center; flex-basis: 400px; flex-grow: 2; }
-        .device-settings-inputs .input-group { display: flex; flex-direction: column; flex-grow: 1; min-width: 120px; }
+        .device-settings-inputs { display: flex; flex-wrap: wrap; gap: 10px 15px; align-items: center; flex-basis: 550px; /* Increased basis */ flex-grow: 2; } /* Adjusted flex basis */
+        .device-settings-inputs .input-group { display: flex; flex-direction: column; flex-grow: 1; min-width: 100px; /* Reduced min-width slightly */ }
         .device-settings-inputs label { font-size: 0.85em; margin-bottom: 3px; color: #666; font-weight: 500; }
-        .device-settings-inputs input[type="number"], .device-settings-inputs input[type="text"] { width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em; box-sizing: border-box; transition: border-color 0.2s; }
+        .device-settings-inputs input[type="number"],
+        .device-settings-inputs input[type="text"],
+        .device-settings-inputs input[type="time"] /* Added time type */
+        { width: 100%; padding: 7px 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 0.95em; box-sizing: border-box; transition: border-color 0.2s; }
         .device-settings-inputs input:focus { outline: none; border-color: #5cb85c; box-shadow: 0 0 0 2px rgba(92, 184, 92, 0.2); }
-        .device-actions { display: flex; gap: 10px; margin-left: auto; flex-shrink: 0; padding-top: 5px; }
+        .device-actions { display: flex; gap: 10px; margin-left: auto; flex-shrink: 0; padding-top: 5px; align-self: flex-end; /* Align buttons to bottom */ }
         .device-actions button { padding: 7px 14px; border-radius: 4px; cursor: pointer; font-size: 0.9em; font-weight: 500; transition: all 0.2s; border: none; display: flex; align-items: center; gap: 4px; }
         .device-actions button:disabled { opacity: 0.7; cursor: not-allowed; }
         .save-settings-btn { background-color: #5cb85c; color: white; }
@@ -145,13 +148,12 @@
 
     <!-- Settings Section -->
     <div id="settings-section">
-         <!-- (Settings HTML structure) -->
          <h2><i class='bx bxs-cog' style='vertical-align: middle; margin-right: 5px;'></i>Device Settings</h2>
          <div class="add-device-form">
              <h3><i class='bx bx-link-alt' style='vertical-align: middle; margin-right: 5px;'></i>Link a New Device</h3>
              <div class="input-group">
-                 <label for="new-device-id">Device Unique ID (from sticker)</label>
-                 <input type="text" id="new-device-id" placeholder="Enter the ID from device sticker" required>
+                 <label for="new-device-id">Device Unique ID</label>
+                 <input type="text" id="new-device-id" placeholder="Enter ID from physical device" required>
              </div>
              <div class="input-group">
                  <label for="new-device-name">Device Name (Optional)</label>
@@ -177,7 +179,6 @@
 
     <!-- Charting Script -->
     <script>
-        // --- Charting Script ---
         console.log("Chart script starting.");
 
         // --- Chart Variables ---
@@ -190,13 +191,13 @@
         const loadingIndicator = document.getElementById('loadingIndicator');
         const chartErrorIndicator = document.getElementById('chartErrorIndicator');
         const applyCustomRangeBtn = document.getElementById('applyCustomRangeBtn');
-        const deviceSelect = document.getElementById('deviceSelect');
+        const deviceSelect = document.getElementById('deviceSelect'); // Use 'deviceSelect' consistent name
 
         let sensorChart = null;
         let currentRange = timeRangeSelect ? timeRangeSelect.value : 'last24h';
-        let currentDeviceId = null;
+        let currentDeviceId = null; // This will be set by Auth/Init script
         let refreshIntervalId = null;
-        const REFRESH_INTERVAL_MS = 60000;
+        const REFRESH_INTERVAL_MS = 60000; // 1 minute
         let selectedStartDate = null;
         let selectedEndDate = null;
         let flatpickrInstance = null;
@@ -208,12 +209,13 @@
                 dateFormat: "Y-m-d",
                 maxDate: "today",
                 onChange: function(selectedDates, dateStr, instance) {
-                     applyCustomRangeBtn.disabled = selectedDates.length !== 2;
+                     if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = selectedDates.length !== 2;
                  },
                  onClose: function(selectedDates, dateStr, instance) {
                      if (selectedDates.length === 2) {
-                         selectedStartDate = selectedDates[0];
-                         selectedEndDate = selectedDates[1];
+                         // Ensure start date is before end date
+                         selectedStartDate = selectedDates[0] < selectedDates[1] ? selectedDates[0] : selectedDates[1];
+                         selectedEndDate = selectedDates[0] < selectedDates[1] ? selectedDates[1] : selectedDates[0];
                          if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = false;
                          console.log(`Custom range staged: ${selectedStartDate.toISOString().split('T')[0]} to ${selectedEndDate.toISOString().split('T')[0]}`);
                      } else {
@@ -226,20 +228,20 @@
             });
         } else { console.error("Flatpickr input element not found."); }
 
-        // --- Apply Custom Range Button ---
+        // --- Apply Button For Custom Range ---
         if (applyCustomRangeBtn) {
             applyCustomRangeBtn.addEventListener('click', () => {
                 if (selectedStartDate && selectedEndDate && currentDeviceId) {
                     const startDateStr = selectedStartDate.toISOString().split('T')[0];
                     const endDateStr = selectedEndDate.toISOString().split('T')[0];
                     console.log(`Applying custom range: ${startDateStr} to ${endDateStr} for Device ID: ${currentDeviceId}`);
-                    currentRange = 'custom';
+                    currentRange = 'custom'; // Make sure range is set to custom
                     stopAutoRefresh();
                     if(autoRefreshCheckbox) {
                         autoRefreshCheckbox.checked = false;
-                        autoRefreshCheckbox.disabled = true;
+                        autoRefreshCheckbox.disabled = true; // Disable refresh for custom range
                     }
-                    updateChart(currentDeviceId, null, startDateStr, endDateStr);
+                    updateChart(currentDeviceId, null, startDateStr, endDateStr); // Pass null for range when dates provided
                 } else {
                     alert("Please select a device and a valid date range.");
                 }
@@ -253,14 +255,15 @@
                  sensorChart.data.labels = [];
                  sensorChart.data.datasets.forEach(ds => ds.data = []);
                  if (sensorChart.options.plugins.annotation) sensorChart.options.plugins.annotation.annotations = [];
-                 sensorChart.update('none');
+                 sensorChart.update('none'); // Use 'none' for no animation on clear
              }
-             showChartMessage(message, true);
+             // Also update the indicator message
+             showChartMessage(message, false); // Show as info, not error
          }
 
         // --- Show Message on Chart Area ---
          function showChartMessage(message, isError = false) {
-             if(loadingIndicator) loadingIndicator.style.display = 'none';
+             if(loadingIndicator) loadingIndicator.style.display = 'none'; // Hide loading indicator when message shown
              if(chartErrorIndicator) {
                  chartErrorIndicator.textContent = message;
                  chartErrorIndicator.style.display = 'block';
@@ -268,12 +271,13 @@
                      chartErrorIndicator.style.borderColor = '#ebccd1';
                      chartErrorIndicator.style.backgroundColor = '#f2dede';
                      chartErrorIndicator.style.color = '#a94442';
-                 } else {
+                 } else { // Informational message style
                      chartErrorIndicator.style.borderColor = '#eee';
                      chartErrorIndicator.style.backgroundColor = '#f9f9f9';
                      chartErrorIndicator.style.color = '#555';
                  }
              }
+             // Clear the chart canvas visually when showing a message
               if (sensorChart) {
                  sensorChart.data.labels = [];
                  sensorChart.data.datasets.forEach(ds => ds.data = []);
@@ -284,20 +288,27 @@
 
         // --- Update Chart Function ---
         function updateChart(deviceId, range, startDate, endDate) {
+             // Check deviceId before proceeding
              if (!deviceId) {
                  console.warn("updateChart called without deviceId.");
                  clearChart("Please select a device to view data.");
+                 // Ensure controls reflect the state
                  if(timeRangeSelect) timeRangeSelect.disabled = true;
                  if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true;
+                 if(customDateSelector) customDateSelector.style.display = 'none';
+                 if(customDateLabel) customDateLabel.style.display = 'none';
                  return;
              } else {
+                 // Enable controls if a device is selected (except auto-refresh for custom)
                  if(timeRangeSelect) timeRangeSelect.disabled = false;
-                 if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = (range === 'custom' || (startDate && endDate));
+                 const isCustom = (range === 'custom' || (startDate && endDate));
+                 if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = isCustom;
              }
 
-             const isCustom = (startDate && endDate);
+             const isCustomDateRange = (startDate && endDate); // Explicitly check if dates were passed
              console.log(`updateChart called for Device ID: ${deviceId}, Range: ${range}, Start: ${startDate}, End: ${endDate}`);
 
+             // Check authentication status (using data attribute set by auth script)
              const authSection = document.getElementById('user-auth-section');
              const isLoggedIn = authSection && authSection.dataset.loggedIn === 'true';
              if (!isLoggedIn) {
@@ -306,103 +317,154 @@
                  return;
              }
 
+             // Show loading indicator, hide error, make chart slightly transparent
              if(loadingIndicator) { loadingIndicator.textContent = 'Loading chart data...'; loadingIndicator.style.display = 'block'; }
              if(chartErrorIndicator) chartErrorIndicator.style.display = 'none';
              if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 0.7;
 
+             // Build the fetch URL
              let fetchUrl = `/api/chartdata?device_id=${deviceId}`;
-             if (isCustom) {
+             if (isCustomDateRange) {
                  fetchUrl += `&start_date=${startDate}&end_date=${endDate}`;
-                 console.log(`Fetching custom range: ${startDate} to ${endDate}`);
+                 console.log(`Fetching custom date range: ${startDate} to ${endDate}`);
+                 // Stop auto-refresh if applying custom dates
                  stopAutoRefresh();
                  if (autoRefreshCheckbox) { autoRefreshCheckbox.checked = false; autoRefreshCheckbox.disabled = true;}
              } else if (range && range !== "custom") {
                  fetchUrl += `&range=${range}`;
                  console.log(`Fetching relative range: ${range}`);
+                 // Manage auto-refresh for relative ranges
                  if (autoRefreshCheckbox) {
-                     autoRefreshCheckbox.disabled = false;
+                     autoRefreshCheckbox.disabled = false; // Enable checkbox
                      if (autoRefreshCheckbox.checked) { startAutoRefresh(); } else { stopAutoRefresh(); }
                  }
              } else if (range === "custom") {
-                 console.log("Custom range selected via dropdown - apply button triggers fetch.");
-                 if(loadingIndicator) loadingIndicator.style.display = 'none';
-                 if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1;
-                 clearChart('Select Date Range and Click Apply');
-                 return;
+                  // This case handles when 'Custom Range' is selected from dropdown, but dates not applied yet
+                 console.log("Custom range selected via dropdown - user needs to use date picker and Apply button.");
+                 if(loadingIndicator) loadingIndicator.style.display = 'none'; // Hide loading
+                 if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1; // Restore opacity
+                 clearChart('Select date range and click Apply'); // Guide user
+                 // Ensure auto-refresh is off and disabled
+                 stopAutoRefresh();
+                 if(autoRefreshCheckbox){ autoRefreshCheckbox.checked = false; autoRefreshCheckbox.disabled = true; }
+                 return; // Don't fetch yet
              } else {
-                 console.error("updateChart: Invalid combination of range/dates.");
-                 showChartMessage("Invalid chart parameters.", true);
+                 console.error("updateChart: Invalid combination of range/dates provided.");
+                 showChartMessage("Invalid chart parameters selected.", true);
                  if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1;
                  return;
              }
 
+             // Perform the fetch
              fetch(fetchUrl)
                  .then(response => {
                      if (!response.ok) {
-                         if (response.status === 401) { showChartMessage("Authentication Required. Redirecting...", true); setTimeout(() => window.location.href = '/login', 1500); throw new Error('Authentication required.'); }
+                         // Handle specific HTTP errors
+                         if (response.status === 401) { showChartMessage("Authentication Required. Please login.", true); setTimeout(() => window.location.href = '/login', 1500); throw new Error('Authentication required.'); }
                          if (response.status === 403 || response.status === 404) { showChartMessage("Device not found or access denied.", true); throw new Error('Device access error.'); }
+                         if (response.status === 400) { return response.json().then(errData => { throw new Error(`Bad Request: ${errData.message || errData.error || 'Invalid parameters'}`); }); }
+                         // Generic error
                          return response.json().then(errData => { throw new Error(`HTTP error! Status: ${response.status}, Message: ${errData.message || errData.error || 'Unknown server error'}`); }).catch(() => { throw new Error(`HTTP error! Status: ${response.status}`); });
                      }
-                     return response.json();
+                     return response.json(); // Parse JSON if response is OK
                  })
                  .then(data => {
-                     if (!data || typeof data !== 'object' || !Array.isArray(data.labels) || !Array.isArray(data.temperatures) || !Array.isArray(data.humidities)) { throw new Error('Invalid data format received from server.'); }
-                     if (data.labels.length === 0) { clearChart("No data available for the selected device and time range."); return; }
+                     // Validate received data structure
+                     if (!data || typeof data !== 'object' || !Array.isArray(data.labels) || !Array.isArray(data.temperatures) || !Array.isArray(data.humidities)) {
+                         throw new Error('Invalid data format received from server.');
+                     }
+                     // Handle case with no data points
+                     if (data.labels.length === 0) {
+                         clearChart("No data available for the selected device and time range.");
+                         return;
+                     }
 
+                     // Prepare chart title
                      const receivedGaps = Array.isArray(data.gaps) ? data.gaps : [];
                      let chartTitleText = '';
                      const selectedDeviceOption = deviceSelect.options[deviceSelect.selectedIndex];
-                     const deviceName = selectedDeviceOption ? selectedDeviceOption.text : `Device ${deviceId}`;
+                     // Use dataset name from option if available, otherwise fallback
+                     const deviceName = selectedDeviceOption ? (selectedDeviceOption.dataset.deviceName || selectedDeviceOption.text) : `Device ${deviceId}`;
 
-                     if (isCustom) {
+                     if (isCustomDateRange) {
+                         // Format dates
                          const startDisplay = selectedStartDate ? selectedStartDate.toLocaleDateString() : startDate;
                          const endDisplay = selectedEndDate ? selectedEndDate.toLocaleDateString() : endDate;
                          chartTitleText = `${deviceName} (${startDisplay === endDisplay ? startDisplay : startDisplay + ' to ' + endDisplay})`;
                      } else {
+                         // Use the text from the selected range option
                          const selectedRangeOption = timeRangeSelect ? Array.from(timeRangeSelect.options).find(opt => opt.value === range) : null;
                          chartTitleText = `${deviceName} (${selectedRangeOption ? selectedRangeOption.text : (range || 'Current')})`;
                      }
 
+                     // Prepare annotations for data gaps
                      let annotations = [];
                      if (Chart.registry.plugins.get('annotation') && data.labels.length > 0) {
                           annotations = receivedGaps.map(gap => {
+                                // Find start/end indices based on labels (timestamps)
                                 const startIndex = data.labels.indexOf(gap.start);
                                 const endIndex = data.labels.indexOf(gap.end);
-                                if (startIndex !== -1 && endIndex !== -1) {
-                                    return { type: 'box', xMin: startIndex, xMax: endIndex, backgroundColor: 'rgba(200,200,200,0.3)', borderColor: 'rgba(180,180,180,0.4)', borderWidth: 1, label: { content: 'Gap', display: true, position: 'start', color: 'rgba(100,100,100,0.7)', font: { size: 10 } }, drawTime: 'beforeDatasetsDraw' };
+                                if (startIndex !== -1 && endIndex !== -1 && startIndex <= endIndex) { // Ensure valid indices
+                                    return { type: 'box', xMin: startIndex, xMax: endIndex, backgroundColor: 'rgba(200,200,200,0.3)', borderColor: 'rgba(180,180,180,0.4)', borderWidth: 1, label: { content: 'Gap', display: (endIndex - startIndex > 2), // Only show label if gap is wide enough
+                                    position: 'start', color: 'rgba(100,100,100,0.7)', font: { size: 10 } }, drawTime: 'beforeDatasetsDraw' };
                                 } return null;
-                           }).filter(a => a !== null);
-                           if (annotations.length !== receivedGaps.length) { console.warn("Some gaps couldn't be annotated accurately."); }
+                           }).filter(a => a !== null); // Filter out nulls if indices weren't found
+                           if (annotations.length !== receivedGaps.length) { console.warn("Some data gaps couldn't be annotated accurately (labels might not match)."); }
                      }
 
+                     // Define chart configuration
                      const chartConfig = {
                           type: 'line',
-                          data: { labels: data.labels, datasets: [ { label: 'Temperature (°C)', data: data.temperatures, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.1)', yAxisID: 'yTemp', tension: 0.1, spanGaps: false, pointRadius: data.labels.length < 150 ? 2 : 0, pointHoverRadius: 5 }, { label: 'Humidity (%)', data: data.humidities, borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.1)', yAxisID: 'yHumid', tension: 0.1, spanGaps: false, pointRadius: data.labels.length < 150 ? 2 : 0, pointHoverRadius: 5 } ] },
-                          options: { responsive: true, maintainAspectRatio: true, animation: { duration: 300 }, scales: { x: { title: { display: true, text: 'Time' }, ticks: { autoSkip: true, maxTicksLimit: data.labels.length > 200 ? 15 : (data.labels.length > 50 ? 25 : 40), maxRotation: 45, minRotation: 0 } }, yTemp: { type: 'linear', position: 'left', title: { display: true, text: 'Temperature (°C)' }, suggestedMin: 10, suggestedMax: 40 }, yHumid: { type: 'linear', position: 'right', title: { display: true, text: 'Humidity (%)' }, suggestedMin: 0, suggestedMax: 100, grid: { drawOnChartArea: false } } }, plugins: { legend: { position: 'top' }, title: { display: true, text: chartTitleText, font: { size: 16 } }, annotation: { annotations: annotations }, tooltip: { mode: 'index', intersect: false, callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null) { if (context.dataset.yAxisID === 'yTemp') label += context.parsed.y.toFixed(1) + ' °C'; else if (context.dataset.yAxisID === 'yHumid') label += context.parsed.y.toFixed(1) + ' %'; else label += context.parsed.y; } else label += 'No data'; return label; } } } }, interaction: { mode: 'nearest', axis: 'x', intersect: false } }
+                          data: { labels: data.labels, datasets: [ { label: 'Temperature (°C)', data: data.temperatures, borderColor: 'rgb(255, 99, 132)', backgroundColor: 'rgba(255, 99, 132, 0.1)', yAxisID: 'yTemp', tension: 0.1, spanGaps: false, // Draw gaps as breaks
+                          pointRadius: data.labels.length < 150 ? 2 : 0, // Fewer points = show radius
+                          pointHoverRadius: 5 }, { label: 'Humidity (%)', data: data.humidities, borderColor: 'rgb(54, 162, 235)', backgroundColor: 'rgba(54, 162, 235, 0.1)', yAxisID: 'yHumid', tension: 0.1, spanGaps: false, // Draw gaps as breaks
+                          pointRadius: data.labels.length < 150 ? 2 : 0, pointHoverRadius: 5 } ] },
+                          options: { responsive: true, maintainAspectRatio: true, // Consider setting false if needed
+                          animation: { duration: 300 }, scales: { x: { title: { display: true, text: 'Time' }, ticks: { autoSkip: true, // Enable auto-skipping labels
+                          maxTicksLimit: data.labels.length > 200 ? 15 : (data.labels.length > 50 ? 25 : 40), // Adjust tick limits
+                          maxRotation: 45, minRotation: 0 } }, yTemp: { type: 'linear', position: 'left', title: { display: true, text: 'Temperature (°C)' }, suggestedMin: 10, suggestedMax: 40 }, yHumid: { type: 'linear', position: 'right', title: { display: true, text: 'Humidity (%)' }, suggestedMin: 0, suggestedMax: 100, grid: { drawOnChartArea: false // Only draw axis lines for humidity
+                          } } }, plugins: { legend: { position: 'top' }, title: { display: true, text: chartTitleText, font: { size: 16 } }, annotation: { annotations: annotations }, tooltip: { mode: 'index', // Show tooltips for all datasets at the same x-index
+                          intersect: false, // Don't require hovering directly over point
+                          callbacks: { label: function(context) { let label = context.dataset.label || ''; if (label) label += ': '; if (context.parsed.y !== null && !isNaN(context.parsed.y)) { // Check if value is valid number
+                          if (context.dataset.yAxisID === 'yTemp') label += context.parsed.y.toFixed(1) + ' °C'; else if (context.dataset.yAxisID === 'yHumid') label += context.parsed.y.toFixed(1) + ' %'; else label += context.parsed.y; } else label += 'No data'; // Handle null/gap
+                          return label; } } } }, interaction: { mode: 'nearest', // Find nearest item in all datasets
+                          axis: 'x', // Constrain to x-axis
+                          intersect: false } }
                      };
 
+                     // Create or update the chart instance
                      if (sensorChart) {
                          console.log("Updating existing chart.");
                          sensorChart.options.plugins.title.text = chartTitleText;
-                         sensorChart.options.plugins.annotation.annotations = annotations;
+                         sensorChart.options.plugins.annotation.annotations = annotations; // Update annotations
                          sensorChart.data.labels = data.labels;
                          sensorChart.data.datasets[0].data = data.temperatures;
                          sensorChart.data.datasets[1].data = data.humidities;
-                         sensorChart.update();
+                         sensorChart.update(); // Update the chart
                      } else {
                          console.log("Creating new chart.");
                          if (ctx) {
-                              if(!Chart.registry.plugins.get('annotation')) { console.warn("Annotation plugin NOT registered."); if(chartConfig.options.plugins.annotation) delete chartConfig.options.plugins.annotation; }
-                              sensorChart = new Chart(ctx, chartConfig);
-                         } else { throw new Error("Chart canvas context not available."); }
+                              // Register annotation plugin
+                              if(!Chart.registry.plugins.get('annotation')) {
+                                   console.warn("Annotation plugin NOT registered globally, attempting registration.");
+                                   try { Chart.register(ChartjsPluginAnnotation); } catch (e) { console.error("Failed to register annotation plugin:", e); if(chartConfig.options.plugins.annotation) delete chartConfig.options.plugins.annotation; } // Remove annotation config if registration fails
+                               }
+                              sensorChart = new Chart(ctx, chartConfig); // Create the chart
+                         } else {
+                              throw new Error("Chart canvas context (ctx) not available.");
+                         }
                      }
-                      console.log(`Chart updated/created for Device ${deviceId}. Labels: ${data.labels.length}. Annotated Gaps: ${annotations.length}`);
+                      console.log(`Chart updated/created for Device ${deviceId}. Labels: ${data.labels.length}. Gaps Found: ${receivedGaps.length}. Annotated Gaps: ${annotations.length}`);
                  })
                  .catch(error => {
+                     // Log and display errors
                      console.error(`Error fetching/processing chart data for Device ${deviceId}:`, error);
                      showChartMessage(`Error: ${error.message || 'Failed to load chart data'}`, true);
+                     // Ensure auto-refresh is stopped on error
+                     stopAutoRefresh();
                  })
                  .finally(() => {
+                     // Hide loading indicator and restore chart opacity
                      if(loadingIndicator) loadingIndicator.style.display = 'none';
                      if (sensorChart && sensorChart.canvas) sensorChart.canvas.style.opacity = 1;
                  });
@@ -415,15 +477,21 @@
                  if (selectedDeviceId) {
                      console.log(`Device selection changed to: ${selectedDeviceId}`);
                      currentDeviceId = selectedDeviceId;
-                     if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId); // Check if function exists
-                     // Trigger chart update for new device
+                     // Fetch latest readings if function exists
+                     if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                     // Trigger chart update for the newly selected device using current range/dates
                      updateChart(currentDeviceId, currentRange, selectedStartDate ? selectedStartDate.toISOString().split('T')[0] : null, selectedEndDate ? selectedEndDate.toISOString().split('T')[0] : null);
                  } else {
+                      // Handle case where '-- No devices --' or similar is selected
                       currentDeviceId = null;
                       clearChart("Please select a device.");
-                      if(typeof clearLatestReading === 'function') clearLatestReading("No device selected"); // Check if function exists
+                      if(typeof clearLatestReading === 'function') clearLatestReading("No device selected");
+                      // Disable controls
                       if(timeRangeSelect) timeRangeSelect.disabled = true;
                       if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true;
+                      if(customDateSelector) customDateSelector.style.display = 'none';
+                      if(customDateLabel) customDateLabel.style.display = 'none';
+                      stopAutoRefresh(); // Stop refresh if no device selected
                  }
              });
         } else { console.error("Device select dropdown not found."); }
@@ -432,29 +500,40 @@
              timeRangeSelect.addEventListener('change', (event) => {
                  currentRange = event.target.value;
                  console.log(`Time range selection changed to: ${currentRange}`);
-                 stopAutoRefresh();
-                 selectedStartDate = null; selectedEndDate = null;
-                 if(flatpickrInstance) flatpickrInstance.clear();
+                 stopAutoRefresh(); // Stop previous interval
+                 selectedStartDate = null; selectedEndDate = null; // Clear custom dates when range changes
+                 if(flatpickrInstance) flatpickrInstance.clear(); // Clear date picker visually
                  const isCustom = currentRange === 'custom';
+
+                 // Show/hide custom date elements
                  if(customDateSelector) customDateSelector.style.display = isCustom ? 'inline-block' : 'none';
                  if(customDateLabel) customDateLabel.style.display = isCustom ? 'inline' : 'none';
-                 if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
+                 if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true; // Disable apply button until dates picked
 
+                 // Update chart based on new range (if a device is selected)
                  if (currentDeviceId) {
                       if (!isCustom) {
+                         // Fetch data for relative range
                          updateChart(currentDeviceId, currentRange, null, null);
+                         // Re-enable auto-refresh checkbox for non-custom ranges
+                         if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = false;
                       } else {
-                           clearChart('Select Date Range and Click Apply');
-                           flatpickrInstance?.open();
+                           // User selected 'Custom Range', prompt them to pick dates
+                           clearChart('Select date range and click Apply');
+                           if(autoRefreshCheckbox) { autoRefreshCheckbox.checked = false; autoRefreshCheckbox.disabled = true; } // Disable refresh for custom
+                           flatpickrInstance?.open(); // Open date picker
                       }
                  } else {
+                      // No device selected, clear chart
                       clearChart("Please select a device first.");
+                      if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true; // Keep disabled
                  }
              });
         } else { console.error("Time range select element not found."); }
 
         if (autoRefreshCheckbox) {
              autoRefreshCheckbox.addEventListener('change', () => {
+                 // Start/stop based on checkbox state, but only if not disabled
                  if (autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled) { startAutoRefresh(); }
                  else { stopAutoRefresh(); }
              });
@@ -462,46 +541,87 @@
 
         // --- Auto-Refresh Functions ---
         function startAutoRefresh() {
-            if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null) {
-                 if (currentDeviceId && currentRange !== "custom" && !selectedStartDate) {
-                     console.log(`Starting auto-refresh for Device ID: ${currentDeviceId}...`);
-                     refreshIntervalId = setInterval(() => {
-                         if (!currentDeviceId || currentRange === "custom" || selectedStartDate) {
-                              console.log("Stopping auto-refresh from interval due to state change.");
-                              stopAutoRefresh(); return;
-                         }
-                         console.log(`Auto-refreshing chart for Device: ${currentDeviceId}, Range: ${currentRange}`);
-                         updateChart(currentDeviceId, currentRange, null, null);
-                         if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
-                     }, REFRESH_INTERVAL_MS);
-                 } else { console.log("Auto-refresh skipped (no device, custom range, or checkbox disabled)."); }
+             // Only start if checkbox is checked, enabled, no interval running, a device is selected, and it's not a custom range.
+            if (autoRefreshCheckbox && autoRefreshCheckbox.checked && !autoRefreshCheckbox.disabled && refreshIntervalId === null && currentDeviceId && currentRange !== "custom" && !selectedStartDate) {
+                 console.log(`Starting auto-refresh interval (every ${REFRESH_INTERVAL_MS / 1000}s) for Device ID: ${currentDeviceId}...`);
+
+                 // Fetch latest readings immediately when starting interval 
+                 if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+
+                 // Set the interval timer
+                 refreshIntervalId = setInterval(() => {
+                     // Double-check conditions *inside* the interval callback, as state might change
+                     const currentDevIdNow = (typeof currentDeviceId !== 'undefined') ? currentDeviceId : null; // Get current ID inside interval
+                     const currentRangeNow = (typeof currentRange !== 'undefined') ? currentRange : null; // Get current range inside interval
+                     const isCheckedNow = autoRefreshCheckbox ? autoRefreshCheckbox.checked : false;
+                     const isDisabledNow = autoRefreshCheckbox ? autoRefreshCheckbox.disabled : true;
+
+                     // If conditions are no longer met, stop the interval
+                     if (!currentDevIdNow || currentRangeNow === "custom" || selectedStartDate || !isCheckedNow || isDisabledNow) {
+                          console.log("Stopping auto-refresh from interval due to state change (device/range/checkbox).");
+                          stopAutoRefresh();
+                          return; // Exit this interval execution
+                     }
+
+                     // Conditions still met, proceed with refresh
+                     console.log(`Auto-refreshing chart for Device: ${currentDevIdNow}, Range: ${currentRangeNow}`);
+                     // Refresh chart from interval
+                     updateChart(currentDevIdNow, currentRangeNow, null, null);
+                     // Refresh latest readings too
+                     if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDevIdNow);
+
+                 }, REFRESH_INTERVAL_MS); // Use the defined interval time
+
+             } else {
+                 // Log why interval wasn't started (useful for debugging)
+                 console.log("Auto-refresh condition not met, not starting interval. Checking conditions:", {
+                     checked: autoRefreshCheckbox ? autoRefreshCheckbox.checked : 'N/A',
+                     enabled: autoRefreshCheckbox ? !autoRefreshCheckbox.disabled : 'N/A',
+                     intervalRunning: refreshIntervalId !== null,
+                     deviceId: currentDeviceId,
+                     range: currentRange,
+                     customDate: selectedStartDate
+                 });
+                 // Ensure interval is stopped if conditions aren't met
+                 stopAutoRefresh();
              }
         }
+
+        // stopAutoRefresh function
         function stopAutoRefresh() {
-            if (refreshIntervalId !== null) { console.log("Stopping auto-refresh."); clearInterval(refreshIntervalId); refreshIntervalId = null; }
+            if (refreshIntervalId !== null) {
+                console.log("Stopping auto-refresh interval.");
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null; // Reset the interval ID tracker
+            }
         }
 
-        // --- Chart Initialization (called later by auth script) ---
+        // --- Dashboard Initialization (called by Auth script) ---
         function initializeDashboard() {
              console.log("Initializing dashboard: Checking device selection and loading initial chart.");
              if (!ctx) { showChartMessage("Error: Chart canvas not found.", true); return; }
 
-             currentDeviceId = deviceSelect ? deviceSelect.value : null; // Get initial device selection
+             // Get initial device selection (might be set by fetchAndRenderDevices)
+             currentDeviceId = deviceSelect ? deviceSelect.value : null;
              const initialRange = timeRangeSelect ? timeRangeSelect.value : 'last24h';
-             currentRange = initialRange;
+             currentRange = initialRange; // Set global range
 
+             // Set visibility of custom date picker based on initial range
              const isCustomInitial = initialRange === 'custom';
              if(customDateSelector) customDateSelector.style.display = isCustomInitial ? 'inline-block' : 'none';
              if(customDateLabel) customDateLabel.style.display = isCustomInitial ? 'inline' : 'none';
-             if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true;
+             if(applyCustomRangeBtn) applyCustomRangeBtn.disabled = true; // Always disabled initially
 
+             // Load chart and latest readings based on initial device selection
              if (currentDeviceId) {
                  console.log(`Initial load for Device ID: ${currentDeviceId}, Range: ${initialRange}`);
-                 updateChart(currentDeviceId, initialRange, null, null);
-                 if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                 updateChart(currentDeviceId, initialRange, null, null); // Initial chart load
+                 if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId); // Initial latest reading
              } else {
+                 // No device initially selected or available
                  clearChart("Please link or select a device to view data.");
                  if(typeof clearLatestReading === 'function') clearLatestReading("No device selected");
+                 // Ensure controls are disabled if no device
                  if(timeRangeSelect) timeRangeSelect.disabled = true;
                  if(autoRefreshCheckbox) autoRefreshCheckbox.disabled = true;
              }
@@ -509,9 +629,8 @@
         console.log("Chart script finished defining functions.");
     </script>
 
-        <!-- Settings Script -->
+    <!-- Settings Script -->
     <script>
-        // --- Settings Script (WITH 401 HANDLING) ---
         console.log("Device settings script starting.");
         const settingsSection = document.getElementById('settings-section');
         const linkedDevicesList = document.getElementById('linked-devices-list');
@@ -522,116 +641,128 @@
         const settingsLoading = document.getElementById('settings-loading');
         const settingsError = document.getElementById('settings-error');
         const noDevicesMsg = document.getElementById('no-devices-msg');
-        const deviceSelectDropdown = document.getElementById('deviceSelect');
+        const deviceSelectDropdown = document.getElementById('deviceSelect'); // Use same ID as chart script
 
         // --- Helper: Show Status Message ---
         function showStatusMessage(element, message, isSuccess) {
-            if (!element) {
-                console.warn("Attempted to show status on null element");
-                return;
-            }
+            if (!element) { console.warn("Attempted to show status on null element"); return; }
             element.textContent = message;
             element.className = `device-status-msg ${isSuccess ? 'success' : 'error'}`;
-            element.style.display = 'inline-block';
-            element.style.opacity = 1;
+            element.style.display = 'inline-block'; // Make visible
+            element.style.opacity = 1; // Ensure fully visible
             // Auto-hide after delay
             setTimeout(() => {
                  if(element) {
-                      element.style.opacity = 0;
-                      // Set display none after fade
-                      setTimeout(() => {
-                          if(element) {
-                              element.style.display = 'none';
-                          }
-                      }, 300); // Transition
+                      element.style.opacity = 0; // Fade out
+                      setTimeout(() => { if(element) { element.style.display = 'none'; } }, 300); // Hide after fade
                  }
-            }, isSuccess ? 3000 : 5000);
+            }, isSuccess ? 3000 : 5000); // Longer display for errors
         }
 
         // --- Helper: Highlight Element ---
          function highlightElement(element) {
              if (!element) return;
              element.classList.add('highlight-success');
-             setTimeout(() => {
-                 if (element) element.classList.remove('highlight-success');
-             }, 1500);
+             setTimeout(() => { if (element) element.classList.remove('highlight-success'); }, 1500);
          }
 
         // --- Fetch and Render Devices ---
         async function fetchAndRenderDevices() {
+            // Check if essential elements exist
             if (!settingsSection || !linkedDevicesList || !settingsLoading || !settingsError || !noDevicesMsg || !deviceSelectDropdown) {
                 console.error("Required UI elements missing for fetch/render devices.");
-                if(settingsError) { settingsError.textContent = "Error: UI elements missing."; settingsError.style.display = 'block'; }
-                return false;
+                if(settingsError) { settingsError.textContent = "Error: Core UI elements missing."; settingsError.style.display = 'block'; }
+                return false; // Indicate failure
             }
 
+            // Set loading state
             settingsLoading.style.display = 'block';
             settingsError.style.display = 'none';
-            linkedDevicesList.innerHTML = '';
-            noDevicesMsg.style.display = 'none';
-            deviceSelectDropdown.innerHTML = '';
-            deviceSelectDropdown.disabled = true;
+            linkedDevicesList.innerHTML = ''; // Clear previous list
+            noDevicesMsg.style.display = 'none'; // Hide 'no devices' message
+            deviceSelectDropdown.innerHTML = ''; // Clear dropdown
+            deviceSelectDropdown.disabled = true; // Disable dropdown initially
 
             try {
                 const response = await fetch('/api/user/devices');
 
+                // Handle authentication error (401 Unauthorized)
                 if (response.status === 401) {
-                     console.warn('Auth required for devices. Redirecting...');
+                     console.warn('Authentication required for devices. Redirecting to login...');
                      settingsLoading.style.display = 'none';
+                     settingsError.textContent = 'Authentication required. Redirecting...';
+                     settingsError.style.display = 'block';
                      throw new Error('Authentication required.'); // Let catch handle redirect
                 }
 
+                // Handle other HTTP errors
                 if (!response.ok) {
                      let errorMsg = `HTTP error ${response.status}`;
-                     try { const d = await response.json(); errorMsg = d.message || d.error || errorMsg; } catch(e){}
+                     try { const errData = await response.json(); errorMsg = errData.message || errData.error || errorMsg; } catch(e){} // Try to parse error message
                      throw new Error(errorMsg);
                  }
+
+                 // Process successful response
                 const result = await response.json();
-                settingsLoading.style.display = 'none';
+                settingsLoading.style.display = 'none'; // Hide loading indicator
 
                 if (result.success && result.devices) {
                     if (result.devices.length > 0) {
+                        // Populate device list and dropdown
                         result.devices.forEach((device, index) => {
                             const deviceElement = createDeviceElement(device);
                             linkedDevicesList.appendChild(deviceElement);
+
+                            // Create dropdown option
                             const option = document.createElement('option');
-                            option.value = device.id;
+                            option.value = device.id; // Use database ID as value
+                            // Use device name, fallback to truncated unique ID
                             option.textContent = device.device_name || `Device (${device.device_unique_id.substring(0, 6)}...)`;
-                            option.dataset.deviceName = option.textContent;
+                            option.dataset.deviceName = option.textContent; // Store name for easy access
                             deviceSelectDropdown.appendChild(option);
-                            // Use global variable 'currentDeviceId' if declared in chart script scope
-                            if (index === 0 && typeof currentDeviceId !== 'undefined') {
+
+                            // Select the first device in the dropdown by default
+                            if (index === 0) {
                                 option.selected = true;
-                                currentDeviceId = device.id;
+                                // Update the global currentDeviceId if it exists
+                                if (typeof currentDeviceId !== 'undefined') {
+                                     currentDeviceId = device.id;
+                                     console.log(`Default device selected: ID ${currentDeviceId}`);
+                                }
                             }
                         });
-                        deviceSelectDropdown.disabled = false;
-                        return true;
+                        deviceSelectDropdown.disabled = false; // Enable dropdown
+                        return true; // Indicate success
                     } else {
-                        noDevicesMsg.style.display = 'block';
+                        // No devices linked
+                        noDevicesMsg.style.display = 'block'; // Show message
                         const option = document.createElement('option');
                         option.value = ""; option.textContent = "-- No devices linked --";
                         deviceSelectDropdown.appendChild(option);
                         deviceSelectDropdown.disabled = true;
+                        // Clear global currentDeviceId if it exists
                         if(typeof currentDeviceId !== 'undefined') currentDeviceId = null;
-                        return true;
+                        return true; // Indicate success (operation completed, just no devices)
                     }
                 } else {
-                     throw new Error(result.message || 'Failed to load devices.');
+                     // API reported success:false or missing devices array
+                     throw new Error(result.message || 'Failed to load devices (invalid response).');
                 }
 
             } catch (error) {
                 console.error("Error fetching/rendering devices:", error);
-                settingsLoading.style.display = 'none';
-                settingsError.textContent = `Error: ${error.message}`;
+                settingsLoading.style.display = 'none'; // Hide loading
+                settingsError.textContent = `Error loading devices: ${error.message}`; // Show error
                 settingsError.style.display = 'block';
-                deviceSelectDropdown.innerHTML = '<option value="">-- Error --</option>';
+                deviceSelectDropdown.innerHTML = '<option value="">-- Error Loading --</option>'; // Indicate error in dropdown
                 deviceSelectDropdown.disabled = true;
+                // Clear global currentDeviceId if it exists
                 if(typeof currentDeviceId !== 'undefined') currentDeviceId = null;
+                // Redirect if auth error
                 if (error.message === 'Authentication required.') {
                     setTimeout(() => { window.location.href = '/login'; }, 1500);
                 }
-                return false;
+                return false; // Indicate failure
             }
         }
 
@@ -639,21 +770,33 @@
         function createDeviceElement(device) {
             const div = document.createElement('div');
             div.className = 'device-item';
-            div.dataset.deviceId = device.id;
+            div.dataset.deviceId = device.id; // Store DB ID
+
+            // Prepare values for inputs, handling nulls
             const nameVal = device.device_name || '';
             const minTempVal = (device.min_temp_threshold !== null && device.min_temp_threshold !== undefined) ? device.min_temp_threshold.toFixed(1) : '';
             const maxTempVal = (device.max_temp_threshold !== null && device.max_temp_threshold !== undefined) ? device.max_temp_threshold.toFixed(1) : '';
             const displayName = nameVal || 'Unnamed Device';
-            // Careful with quotes inside the template literal
+
+            // Get time values (expecting HH:MM or null) 
+            const offStartVal = device.heating_off_start_time || ''; // Use HH:MM from backend
+            const offEndVal = device.heating_off_end_time || '';     // Use HH:MM from backend
+
+            // Use helper function for safe HTML insertion if available, else use the value as-is
+            const safeNameVal = (typeof escapeHTML === 'function') ? escapeHTML(nameVal) : nameVal;
+            const safeDisplayName = (typeof escapeHTML === 'function') ? escapeHTML(displayName) : displayName;
+            const safeUniqueId = (typeof escapeHTML === 'function') ? escapeHTML(device.device_unique_id) : device.device_unique_id;
+
+            // Generate inner HTML structure
             div.innerHTML = `
                 <div class="device-info">
-                    <strong class="device-name-display">${displayName}</strong>
-                    <span class="device-id-display">ID: ${device.device_unique_id}</span>
+                    <strong class="device-name-display">${safeDisplayName}</strong>
+                    <span class="device-id-display">ID: ${safeUniqueId}</span>
                 </div>
                 <div class="device-settings-inputs">
                      <div class="input-group">
                          <label for="dev-name-${device.id}">Name:</label>
-                         <input type="text" id="dev-name-${device.id}" class="device-name-input" placeholder="Opt. Name" value="${nameVal}">
+                         <input type="text" id="dev-name-${device.id}" class="device-name-input" placeholder="Optional Name" value="${safeNameVal}" maxlength="100">
                      </div>
                      <div class="input-group">
                          <label for="dev-min-${device.id}">Min °C:</label>
@@ -663,241 +806,328 @@
                          <label for="dev-max-${device.id}">Max °C:</label>
                          <input type="number" id="dev-max-${device.id}" step="0.1" class="max-temp-input" placeholder="e.g. 30.0" value="${maxTempVal}">
                      </div>
+                     <!-- *** MODIFICATION START: Add Time Inputs *** -->
+                     <div class="input-group">
+                         <label for="dev-off-start-${device.id}" title="Heater stays OFF from this time (24h format). Leave blank to disable.">Off Start:</label>
+                         <input type="time" id="dev-off-start-${device.id}" class="off-start-input" value="${offStartVal}">
+                     </div>
+                     <div class="input-group">
+                         <label for="dev-off-end-${device.id}" title="Heater stays OFF until this time (24h format). Leave blank to disable.">Off End:</label>
+                         <input type="time" id="dev-off-end-${device.id}" class="off-end-input" value="${offEndVal}">
+                     </div>
                 </div>
                 <div class="device-actions">
-                    <button class="save-settings-btn" title="Save"><i class='bx bx-save'></i> Save</button>
-                    <button class="unlink-device-btn" title="Unlink"><i class='bx bx-trash'></i> Unlink</button>
+                    <button class="save-settings-btn" title="Save Settings"><i class='bx bx-save'></i> Save</button>
+                    <button class="unlink-device-btn" title="Unlink Device"><i class='bx bx-trash'></i> Unlink</button>
                     <span class="device-status-msg" style="display: none; opacity: 0;"></span>
                 </div>`;
             return div;
         }
 
+
         // --- Link Device Event Listener ---
         if (linkDeviceBtn) {
             linkDeviceBtn.addEventListener('click', async () => {
+                // Validate inputs
                 const uniqueId = newDeviceIdInput.value.trim();
                 const name = newDeviceNameInput.value.trim();
-                // Validation
-                if (!uniqueId) {
-                    showStatusMessage(linkDeviceStatus, 'Device ID required.', false);
-                    return;
-                }
-                if (uniqueId.length < 3 || uniqueId.length > 100 || !/^[a-zA-Z0-9-_]+$/.test(uniqueId)) {
-                    showStatusMessage(linkDeviceStatus, 'Invalid ID format.', false);
-                    return;
-                }
+                if (!uniqueId) { showStatusMessage(linkDeviceStatus, 'Device Unique ID is required.', false); return; }
+                 // Basic format check (e.g. UUIDv4 length)
+                 // Allowing alphanumeric, hyphen, underscore
+                if (uniqueId.length < 3 || uniqueId.length > 255 || !/^[a-zA-Z0-9-_]+$/.test(uniqueId)) {
+                     showStatusMessage(linkDeviceStatus, 'Invalid Device ID format/characters.', false); return;
+                 }
+                if (name && name.length > 100) { // Check optional name length
+                     showStatusMessage(linkDeviceStatus, 'Device name too long (max 100).', false); return;
+                 }
 
-                linkDeviceBtn.disabled = true;
-                linkDeviceBtn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Linking...";
-                linkDeviceStatus.style.display = 'none';
+                // Set loading state
+                linkDeviceBtn.disabled = true; linkDeviceBtn.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Linking...";
+                linkDeviceStatus.style.display = 'none'; // Hide previous status
                 const formData = new FormData();
                 formData.append('device_unique_id', uniqueId);
-                if (name) {
-                    formData.append('device_name', name);
-                }
+                if (name) { formData.append('device_name', name); }
 
                 try {
                     const response = await fetch('/api/user/devices/link', { method: 'POST', body: formData });
 
+                    // Handle Auth Error
                     if (response.status === 401) {
-                        console.warn('Auth required to link. Redirecting...');
+                        console.warn('Auth required to link device. Redirecting...');
                         showStatusMessage(linkDeviceStatus, 'Login required. Redirecting...', false);
                         setTimeout(() => { window.location.href = '/login'; }, 1500);
-                        return; // Exit early
+                        throw new Error('Authentication required.'); // Prevent further processing
                     }
 
-                    if (!response.headers.get("content-type")?.includes("application/json")) {
-                        const txt = await response.text();
-                        console.error("Non-JSON response:", txt);
-                        throw new Error(`Server error ${response.status}`);
+                    // Ensure JSON response before parsing
+                    const contentType = response.headers.get("content-type");
+                    if (!contentType || !contentType.includes("application/json")) {
+                        const txt = await response.text(); console.error("Non-JSON response on link:", txt);
+                        throw new Error(`Server returned non-JSON response (Status: ${response.status})`);
                     }
                     const result = await response.json();
 
                     if (response.ok && result.success) {
-                        showStatusMessage(linkDeviceStatus, 'Linked!', true);
-                        newDeviceIdInput.value = '';
-                        newDeviceNameInput.value = '';
+                        showStatusMessage(linkDeviceStatus, 'Device linked successfully!', true);
+                        newDeviceIdInput.value = ''; newDeviceNameInput.value = ''; // Clear form
+
                         if (result.device) {
+                             // Add the new device to the list and dropdown
                              const newElement = createDeviceElement(result.device);
                              linkedDevicesList.appendChild(newElement);
-                             highlightElement(newElement);
-                             noDevicesMsg.style.display = 'none';
+                             highlightElement(newElement); // Visual feedback
+                             noDevicesMsg.style.display = 'none'; // Hide 'no devices' msg
+
+                             // Clear placeholder option if it exists
                              if(deviceSelectDropdown.options.length === 1 && deviceSelectDropdown.options[0].value === "") {
-                                 deviceSelectDropdown.innerHTML = ''; // Clear placeholder
+                                 deviceSelectDropdown.innerHTML = '';
                              }
+                             // Add new option to dropdown
                              const option = document.createElement('option');
                              option.value = result.device.id;
                              option.textContent = result.device.device_name || `Device (${result.device.device_unique_id.substring(0, 6)}...)`;
-                             option.dataset.deviceName = option.textContent;
+                             option.dataset.deviceName = option.textContent; // Store name
                              deviceSelectDropdown.appendChild(option);
-                             deviceSelectDropdown.value = result.device.id; // Select new device
+                             deviceSelectDropdown.value = result.device.id; // Select the newly added device
                              deviceSelectDropdown.disabled = false;
-                             // Update global state if available
+
+                             // Update global state and trigger dashboard updates if functions exist
                              if(typeof currentDeviceId !== 'undefined') currentDeviceId = result.device.id;
-                             // Trigger updates if functions exist
-                             const currentRangeRef = (typeof currentRange !== 'undefined') ? currentRange : 'last24h'; // Use global or default
-                             const startDateRef = (typeof selectedStartDate !== 'undefined') ? selectedStartDate : null;
-                             const endDateRef = (typeof selectedEndDate !== 'undefined') ? selectedEndDate : null;
-                             if(typeof updateChart === 'function') updateChart(currentDeviceId, currentRangeRef, startDateRef ? startDateRef.toISOString().split('T')[0] : null, endDateRef ? endDateRef.toISOString().split('T')[0] : null);
-                             if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                             if(typeof initializeDashboard === 'function') {
+                                 // Instead of full init, just trigger update for the new device
+                                 const currentRangeRef = (typeof currentRange !== 'undefined') ? currentRange : 'last24h';
+                                 if(typeof updateChart === 'function') updateChart(currentDeviceId, currentRangeRef, null, null);
+                                 if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                             }
                         } else {
-                             // Fallback if device data missing
+                             // Fallback if link success but device data missing in response
+                             console.warn("Link successful but device data missing in response. Refreshing list.");
                              if(typeof fetchAndRenderDevices === 'function' && typeof initializeDashboard === 'function') {
-                                 fetchAndRenderDevices().then(initializeDashboard);
+                                 fetchAndRenderDevices().then(initializeDashboard); // Full refresh
                              }
                         }
                     } else {
-                        showStatusMessage(linkDeviceStatus, result.message || `Error: ${response.status}`, false);
+                        // API reported error (e.g. duplicate ID, validation error)
+                        showStatusMessage(linkDeviceStatus, result.message || `Error linking: ${response.status}`, false);
                     }
                 } catch (error) {
-                    console.error("Err link device:", error);
-                     if (error.message && error.message.includes("non-JSON")) {
-                         showStatusMessage(linkDeviceStatus, 'Unexpected server response.', false);
-                     } else if (error.message !== 'Authentication required.'){
-                         showStatusMessage(linkDeviceStatus, `Network/server error: ${error.message}`, false);
+                    console.error("Error linking device:", error);
+                     // Avoid showing auth error twice if already handled
+                     if (error.message !== 'Authentication required.'){
+                         showStatusMessage(linkDeviceStatus, `Network or server error occurred: ${error.message}`, false);
                      }
                 } finally {
-                    linkDeviceBtn.disabled = false;
-                    linkDeviceBtn.innerHTML = "<i class='bx bx-plus-circle'></i> Link Device";
+                    // Restore button state
+                    linkDeviceBtn.disabled = false; linkDeviceBtn.innerHTML = "<i class='bx bx-plus-circle'></i> Link Device";
                 }
              });
-        } else {
-            console.error("Link btn missing.");
-        }
+        } else { console.error("Link device button not found."); }
 
         // --- Settings/Unlink Event Delegation ---
         if (linkedDevicesList) {
             linkedDevicesList.addEventListener('click', async (event) => {
-                const target = event.target.closest('button'); if (!target) return;
-                const item = target.closest('.device-item'); if (!item) return;
-                const devId = item.dataset.deviceId;
-                const statusEl = item.querySelector('.device-status-msg');
-                if (!statusEl) { console.error("Status element missing in item"); return;} // Add check
+                // Delegate to button clicks within the list
+                const target = event.target.closest('button'); if (!target) return; // Ignore clicks not on buttons
+                const item = target.closest('.device-item'); if (!item) return; // Ensure button is inside a device item
+                const devId = item.dataset.deviceId; if (!devId) { console.error("Device ID missing from item dataset"); return; } // Ensure ID exists
+                const statusEl = item.querySelector('.device-status-msg'); if (!statusEl) { console.error("Status element missing in item"); return; }
 
-                // Save Settings
+                // --- Save Settings ---
                 if (target.classList.contains('save-settings-btn')) {
+                    // Find input elements within this specific device item
                     const nameIn = item.querySelector('.device-name-input');
                     const minIn = item.querySelector('.min-temp-input');
                     const maxIn = item.querySelector('.max-temp-input');
-                    if (!nameIn || !minIn || !maxIn) { console.error("Input elements missing in item:", devId); return; }
+                    const offStartIn = item.querySelector('.off-start-input');
+                    const offEndIn = item.querySelector('.off-end-input');
 
-                    const nameVal = nameIn.value.trim(); const minVal = minIn.value.trim(); const maxVal = maxIn.value.trim();
-                    let payload = { device_name: nameVal === '' ? null : nameVal };
-                    let hasErr = false; let minF = null; let maxF = null;
+                    // Check if all expected input elements were found
+                    if (!nameIn || !minIn || !maxIn || !offStartIn || !offEndIn) {
+                        console.error("Input elements missing in device item:", devId);
+                        showStatusMessage(statusEl, 'Internal error: UI elements missing.', false);
+                        return;
+                    }
 
-                    // Validation
+                    // Get trimmed values
+                    const nameVal = nameIn.value.trim();
+                    const minVal = minIn.value.trim();
+                    const maxVal = maxIn.value.trim();
+                    // Get time values
+                    const offStartVal = offStartIn.value.trim(); // HH:MM or empty
+                    const offEndVal = offEndIn.value.trim();     // HH:MM or empty
+
+                    // --- Frontend Validation ---
+                    let payload = { device_name: nameVal === '' ? null : nameVal }; // Handle empty name as null
+                    let hasErr = false;
+                    let minF = null; let maxF = null;
+
+                    // Validate Min Temp
                     if (minVal !== '') {
                          minF = parseFloat(minVal);
-                         if (isNaN(minF)||(minF<-40||minF>85)) { showStatusMessage(statusEl, 'Invalid Min.', false); hasErr = true; }
+                         if (isNaN(minF) || minF < -20 || minF > 60) { showStatusMessage(statusEl, 'Invalid Min Temp value/range.', false); hasErr = true; }
                          else payload.min_temp = minF;
-                    } else {
-                        payload.min_temp = null;
-                    }
+                    } else { payload.min_temp = null; } // Send null if empty
+
+                    // Validate Max Temp (only if min was valid)
                     if (!hasErr && maxVal !== '') {
                         maxF = parseFloat(maxVal);
-                        if (isNaN(maxF)||(maxF<-40||maxF>85)) { showStatusMessage(statusEl, 'Invalid Max.', false); hasErr = true; }
+                        if (isNaN(maxF) || maxF < -19 || maxF > 65) { showStatusMessage(statusEl, 'Invalid Max Temp value/range.', false); hasErr = true; }
                         else payload.max_temp = maxF;
-                     } else if (!hasErr) {
-                        payload.max_temp = null;
-                    }
+                     } else if (!hasErr) { payload.max_temp = null; } // Send null if empty
+
+                     // Validate Min < Max (only if both were valid numbers)
                     if (!hasErr && minF !== null && maxF !== null && minF >= maxF) {
-                        showStatusMessage(statusEl, 'Min >= Max.', false); hasErr = true;
+                        showStatusMessage(statusEl, 'Min temp must be less than Max temp.', false); hasErr = true;
                     }
+
+                    // Validate and add times
+                    if (!hasErr) {
+                        payload.heating_off_start_time = offStartVal || null; // Send HH:MM string or null
+                        payload.heating_off_end_time = offEndVal || null;     // Send HH:MM string or null
+
+                        // Check if only one time is set (both must be set or both null)
+                        if ((payload.heating_off_start_time && !payload.heating_off_end_time) || (!payload.heating_off_start_time && payload.heating_off_end_time)) {
+                           showStatusMessage(statusEl, 'Set both Off Start/End times or leave both blank.', false);
+                           hasErr = true;
+                        }
+                    }
+
+                    // If any validation failed, stop here
                     if (hasErr) return;
 
-                    target.disabled = true; target.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Save..."; statusEl.style.display = 'none';
+                    // --- Send Request ---
+                    target.disabled = true; target.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Saving..."; statusEl.style.display = 'none'; // Hide previous status
                     try {
-                        const response = await fetch(`/api/user/devices/${devId}/settings`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+                        const response = await fetch(`/api/user/devices/${devId}/settings`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload) // Send validated payload
+                        });
 
+                        // Handle Auth Error
                         if (response.status === 401) {
-                            console.warn('Auth required to save. Redirecting...');
+                            console.warn('Auth required to save settings. Redirecting...');
                             showStatusMessage(statusEl, 'Login required. Redirecting...', false);
                             setTimeout(() => { window.location.href = '/login'; }, 1500);
-                            target.disabled=false; target.innerHTML="<i class='bx bx-save'></i> Save"; return;
+                            throw new Error('Authentication required.');
                         }
 
-                        if (!response.headers.get("content-type")?.includes("application/json")) { const txt = await response.text(); console.error("Non-JSON:", txt); throw new Error(`Server error ${response.status}`); }
+                        // Check for non-JSON response
+                        const contentType = response.headers.get("content-type");
+                        if (!contentType || !contentType.includes("application/json")) { const txt = await response.text(); console.error("Non-JSON save response:", txt); throw new Error(`Server returned non-JSON (Status: ${response.status})`); }
+
                         const result = await response.json();
                         if (response.ok && result.success) {
-                            showStatusMessage(statusEl, 'Saved!', true); highlightElement(item);
-                            const nameDisp = item.querySelector('.device-name-display'); const newDispName = payload.device_name || 'Unnamed Device'; if (nameDisp) nameDisp.textContent = newDispName;
-                            const opt = deviceSelectDropdown.querySelector(`option[value="${devId}"]`);
-                            if (opt && opt.textContent !== newDispName) { opt.textContent = newDispName; opt.dataset.deviceName = newDispName; if (currentDeviceId == devId && typeof updateLatestReadingTitle === 'function') updateLatestReadingTitle(newDispName); }
+                            showStatusMessage(statusEl, 'Settings saved!', true);
+                            highlightElement(item); // Visual feedback
+                            // Update device name in UI if changed
+                            const nameDisp = item.querySelector('.device-name-display');
+                            const newDispName = payload.device_name || 'Unnamed Device';
+                            if (nameDisp && nameDisp.textContent !== newDispName) {
+                                nameDisp.textContent = (typeof escapeHTML === 'function') ? escapeHTML(newDispName) : newDispName;
+                                // Update corresponding dropdown option text
+                                const opt = deviceSelectDropdown.querySelector(`option[value="${devId}"]`);
+                                if (opt) { opt.textContent = newDispName; opt.dataset.deviceName = newDispName; }
+                                // Update latest reading title if this is the selected device
+                                if (currentDeviceId == devId && typeof updateLatestReadingTitle === 'function') {
+                                    updateLatestReadingTitle(newDispName);
+                                }
+                            }
                         } else {
-                            showStatusMessage(statusEl, result.message || `Error ${response.status}`, false);
+                             // API reported error (e.g. validation failed backend, DB error)
+                            showStatusMessage(statusEl, result.message || `Error saving: ${response.status}`, false);
                         }
                     } catch (error) {
-                        console.error("Err save settings:", error);
-                         if (error.message && error.message.includes("non-JSON")){ showStatusMessage(statusEl, 'Unexpected server response.', false); }
-                         else if (error.message !== 'Authentication required.') { showStatusMessage(statusEl, `Network/server err: ${error.message}`, false); }
+                        console.error("Error saving device settings:", error);
+                        if (error.message !== 'Authentication required.') { showStatusMessage(statusEl, `Network or server error occurred: ${error.message}`, false); }
                     } finally {
+                         // Restore button state
                          target.disabled = false; target.innerHTML = "<i class='bx bx-save'></i> Save";
                     }
-                }
+                } // End Save Settings
 
-                // Unlink Device
+                // --- Unlink Device ---
                 if (target.classList.contains('unlink-device-btn')) {
+                    // Confirm with user
                     const devName = item.querySelector('.device-name-display')?.textContent || `ID ${devId}`;
-                    if (!confirm(`Unlink "${devName}"?`)) return;
+                    const safeDevName = (typeof escapeHTML === 'function') ? escapeHTML(devName) : devName; // Escape name for confirm dialog
+                    if (!confirm(`Are you sure you want to unlink "${safeDevName}"? This cannot be undone.`)) return; // Stop if user cancels
 
-                    target.disabled = true; target.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Unlink...";
-                    const saveBtn = item.querySelector('.save-settings-btn'); if (saveBtn) saveBtn.disabled = true;
-                    statusEl.style.display = 'none';
+                    // Set loading state
+                    target.disabled = true; target.innerHTML = "<i class='bx bx-loader-alt bx-spin'></i> Unlinking...";
+                    const saveBtn = item.querySelector('.save-settings-btn'); if (saveBtn) saveBtn.disabled = true; // Disable save during unlink
+                    statusEl.style.display = 'none'; // Hide previous status
 
                     try {
                         const response = await fetch(`/api/user/devices/${devId}/unlink`, { method: 'DELETE' });
 
+                        // Handle Auth Error
                         if (response.status === 401) {
-                            console.warn('Auth required to unlink. Redirecting...');
-                            showStatusMessage(linkDeviceStatus, 'Login required. Redirecting...', false); // Use general status msg
+                            console.warn('Auth required to unlink device. Redirecting...');
+                            // Use general link status message area for this error
+                            showStatusMessage(linkDeviceStatus || statusEl, 'Login required. Redirecting...', false);
                             setTimeout(() => { window.location.href = '/login'; }, 1500);
-                            target.disabled = false; target.innerHTML = "<i class='bx bx-trash'></i> Unlink"; if (saveBtn) saveBtn.disabled = false;
-                            return;
+                            throw new Error('Authentication required.');
                         }
 
-                        if (!response.headers.get("content-type")?.includes("application/json")) { const txt = await response.text(); console.error("Non-JSON:", txt); throw new Error(`Server error ${response.status}`); }
-                        const result = await response.json();
+                        // Check for non-JSON response
+                        const contentType = response.headers.get("content-type");
+                        if (!contentType || !contentType.includes("application/json")) { const txt = await response.text(); console.error("Non-JSON unlink response:", txt); throw new Error(`Server returned non-JSON (Status: ${response.status})`); }
 
+                        const result = await response.json();
                         if (response.ok && result.success) {
+                            // Success: Animate removal
                             item.style.transition = 'opacity .5s, transform .5s'; item.style.opacity = '0'; item.style.transform = 'scale(.95)';
+                            // Remove corresponding option from dropdown
                             const opt = deviceSelectDropdown.querySelector(`option[value="${devId}"]`); if (opt) opt.remove();
+
+                            // Remove element after animation and update UI state
                             setTimeout(() => {
-                                 item.remove();
+                                 item.remove(); // Remove from DOM
+                                 // Check if any devices remain
                                  if (linkedDevicesList.children.length === 0) {
-                                      noDevicesMsg.style.display = 'block'; deviceSelectDropdown.innerHTML = '<option value="">-- No devices --</option>'; deviceSelectDropdown.disabled = true;
+                                      noDevicesMsg.style.display = 'block'; // Show 'no devices' message
+                                      deviceSelectDropdown.innerHTML = '<option value="">-- No devices --</option>';
+                                      deviceSelectDropdown.disabled = true;
+                                      // Clear global device ID and dashboard state
                                       if(typeof currentDeviceId !== 'undefined') currentDeviceId = null;
                                       if(typeof clearChart === 'function') clearChart("Link a device.");
-                                      if(typeof clearLatestReading === 'function') clearLatestReading("No device");
+                                      if(typeof clearLatestReading === 'function') clearLatestReading("No device selected");
                                  } else {
-                                      // Check if the unlinked device *was* selected
+                                      // Devices remain, check if the *unlinked* device was the *selected* one
                                       if (typeof currentDeviceId !== 'undefined' && currentDeviceId == devId) {
-                                           deviceSelectDropdown.selectedIndex = 0; // Select first remaining
-                                           currentDeviceId = deviceSelectDropdown.value;
-                                           // Update chart/readings for the newly selected device
-                                           const currentRangeRef = (typeof currentRange !== 'undefined') ? currentRange : 'last24h';
-                                           const startDateRef = (typeof selectedStartDate !== 'undefined') ? selectedStartDate : null;
-                                           const endDateRef = (typeof selectedEndDate !== 'undefined') ? selectedEndDate : null;
-                                           if(typeof updateChart === 'function') updateChart(currentDeviceId, currentRangeRef, startDateRef ? startDateRef.toISOString().split('T')[0] : null, endDateRef ? endDateRef.toISOString().split('T')[0] : null);
-                                           if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                                           // Select the first remaining device in the dropdown
+                                           deviceSelectDropdown.selectedIndex = 0;
+                                           currentDeviceId = deviceSelectDropdown.value; // Update global ID
+                                           console.log(`Unlinked device was selected. Switched to device ID: ${currentDeviceId}`);
+                                           // Trigger update for the newly selected device
+                                           if(typeof initializeDashboard === 'function'){
+                                                const currentRangeRef = (typeof currentRange !== 'undefined') ? currentRange : 'last24h';
+                                                if(typeof updateChart === 'function') updateChart(currentDeviceId, currentRangeRef, null, null);
+                                                if(typeof fetchLatestReadings === 'function') fetchLatestReadings(currentDeviceId);
+                                           }
                                       }
+                                      // If unlinked device wasn't selected, no need to change selection
                                  }
                             }, 500); // Wait for animation
                         } else {
-                            showStatusMessage(statusEl, result.message || `Error ${response.status}`, false);
+                            // API reported error (e.g. device not found, DB error)
+                            showStatusMessage(statusEl, result.message || `Error unlinking: ${response.status}`, false);
+                            // Restore button state only if deletion failed
                             target.disabled = false; target.innerHTML = "<i class='bx bx-trash'></i> Unlink"; if (saveBtn) saveBtn.disabled = false;
                         }
                     } catch (error) {
-                        console.error("Err unlink:", error);
-                        if (error.message && error.message.includes("non-JSON")) { showStatusMessage(statusEl, 'Unexpected server response.', false); }
-                         else if (error.message !== 'Authentication required.') { showStatusMessage(statusEl, `Network/server err: ${error.message}`, false); }
+                        console.error("Error unlinking device:", error);
+                        if (error.message !== 'Authentication required.') { showStatusMessage(statusEl, `Network or server error occurred: ${error.message}`, false); }
+                        // Restore button state on error
                         target.disabled = false; target.innerHTML = "<i class='bx bx-trash'></i> Unlink"; if (saveBtn) saveBtn.disabled = false;
                     }
-                }
+                } // End Unlink Device
             });
         } else {
-             console.error("Linked devices list missing.");
+             console.error("Linked devices list element not found for event delegation.");
         }
-        console.log("Settings script defined.");
+        console.log("Settings script defined functions.");
     </script>
 
     <!-- Latest Reading Script -->
@@ -907,98 +1137,124 @@
         const latestDataDiv = document.getElementById('latest-data');
         const latestReadingDeviceNameSpan = document.getElementById('latest-reading-device-name');
         let latestReadingIntervalId = null;
-        const LATEST_READING_INTERVAL_MS = 20000;
+        const LATEST_READING_INTERVAL_MS = 20000; // 20 seconds
 
+         // Function to update the title above the latest reading box
          function updateLatestReadingTitle(deviceName) {
-             // Use global escapeHTML if available, otherwise simple text setting
+             // Use helper function for safe HTML insertion
              const safeName = (typeof escapeHTML === 'function') ? escapeHTML(deviceName) : deviceName;
              if (latestReadingDeviceNameSpan) {
                  latestReadingDeviceNameSpan.textContent = safeName ? safeName : "No device selected";
              }
          }
 
+        // Function to clear the latest reading display
         function clearLatestReading(message = "Loading...") {
              if (latestDataDiv) {
                  latestDataDiv.textContent = message;
-                 latestDataDiv.className = 'loading';
+                 latestDataDiv.className = 'loading'; // Set loading class
              }
+             // Also clear the title
              updateLatestReadingTitle(null);
         }
 
+        // Async function to fetch latest readings for a given device ID
         async function fetchLatestReadings(deviceId) {
-            if (!latestDataDiv || !latestReadingDeviceNameSpan) { console.error("Latest reading elements missing."); return; }
+            // Ensure required elements exist
+            if (!latestDataDiv || !latestReadingDeviceNameSpan) { console.error("Latest reading UI elements missing."); return; }
 
-            // Use global deviceSelectDropdown if available
+            // Find the device name from the dropdown (use global 'deviceSelectDropdown' if available)
             const currentDeviceDropdown = (typeof deviceSelectDropdown !== 'undefined') ? deviceSelectDropdown : null;
             const selectedOption = currentDeviceDropdown ? currentDeviceDropdown.options[currentDeviceDropdown.selectedIndex] : null;
-            const deviceName = selectedOption ? selectedOption.dataset.deviceName : null;
+            // Use the stored dataset name
+            const deviceName = selectedOption ? (selectedOption.dataset.deviceName || selectedOption.text) : null;
 
+            // Update the title area
             updateLatestReadingTitle(deviceName);
 
+             // If no device ID provided, clear the display and stop polling
              if (!deviceId) {
                  clearLatestReading("No device selected");
-                 stopLatestReadingRefresh();
+                 stopLatestReadingRefresh(); // Stop polling if no device
                  return;
              }
 
+            // Set loading state while fetching
             latestDataDiv.textContent = 'Loading...';
             latestDataDiv.className = 'loading';
-            startLatestReadingRefresh();
+
 
             try {
                 const response = await fetch(`/api/readings/latest?device_id=${deviceId}`);
 
-                 if (response.status === 401) { throw new Error("Auth Required"); }
+                // Handle Auth Error
+                 if (response.status === 401) { throw new Error("Authentication Required"); }
 
+                 // Handle other HTTP errors
                  if (!response.ok) {
-                     if(response.status === 404 || response.status === 403) throw new Error("Device not found/denied");
-                     throw new Error(`HTTP error ${response.status}`);
+                     if(response.status === 404 || response.status === 403) throw new Error("Device not found or access denied");
+                     // Try parsing error message for other errors
+                     try { const errData = await response.json(); throw new Error(errData.message || errData.error || `HTTP error ${response.status}`); } catch (e) { throw new Error(`HTTP error ${response.status}`); }
                  }
+
+                 // Process successful response
                 const data = await response.json();
 
                 if (data && Object.keys(data).length > 0 && data.reading_time) {
+                    // Format the data
                    const time = new Date(data.reading_time).toLocaleString();
+                   // Handle potential null values from DB
                    const temp = (data.temperature !== null && data.temperature !== undefined) ? `${data.temperature.toFixed(1)}°C` : 'N/A';
                    const humid = (data.humidity !== null && data.humidity !== undefined) ? `${data.humidity.toFixed(1)}%` : 'N/A';
+                   // Display formatted data
                    latestDataDiv.textContent = `Time : ${time}\nTemp : ${temp}\nHumid: ${humid}`;
-                   latestDataDiv.className = '';
+                   latestDataDiv.className = ''; // Remove loading class
                 } else {
-                    latestDataDiv.textContent = "No recent data for this device.";
-                     latestDataDiv.className = '';
+                    // Handle case where API returns success but no data (e.g. device never sent data)
+                    latestDataDiv.textContent = "No recent data found for this device.";
+                    latestDataDiv.className = ''; // Remove loading class
                 }
             } catch (error) {
-                console.error('Err fetch latest:', error);
-                latestDataDiv.textContent = `Error: ${error.message}`;
-                latestDataDiv.className = 'error';
-                if (error.message === "Auth Required"){
+                console.error('Error fetching latest reading:', error);
+                latestDataDiv.textContent = `Error loading data: ${error.message}`; // Display error
+                latestDataDiv.className = 'error'; // Add error class
+                // Stop polling and redirect on auth error
+                if (error.message === "Authentication Required"){
                      stopLatestReadingRefresh();
                      setTimeout(() => { window.location.href = '/login'; }, 1500);
                 }
             }
         }
 
+         // Function to start the polling interval
          function startLatestReadingRefresh() {
              // Use global currentDeviceId if available
              const deviceIdToCheck = (typeof currentDeviceId !== 'undefined') ? currentDeviceId : null;
+             // Only start if interval not running and a device is selected
              if (latestReadingIntervalId === null && deviceIdToCheck) {
-                 console.log("Start latest reading poll.");
+                 console.log(`Starting latest reading polling (every ${LATEST_READING_INTERVAL_MS / 1000}s) for Device ID: ${deviceIdToCheck}.`);
                  latestReadingIntervalId = setInterval(() => {
+                     // Check again inside interval if device still selected
                      const currentDevIdNow = (typeof currentDeviceId !== 'undefined') ? currentDeviceId : null;
-                     if(currentDevIdNow) fetchLatestReadings(currentDevIdNow);
-                     else stopLatestReadingRefresh();
+                     if(currentDevIdNow) {
+                         fetchLatestReadings(currentDevIdNow); // Fetch for current device
+                     } else {
+                         stopLatestReadingRefresh(); // Stop if no device selected anymore
+                     }
                  }, LATEST_READING_INTERVAL_MS);
              }
          }
 
+         // Function to stop the polling interval
          function stopLatestReadingRefresh() {
               if (latestReadingIntervalId !== null) {
-                  console.log("Stop latest reading poll.");
+                  console.log("Stopping latest reading polling.");
                   clearInterval(latestReadingIntervalId);
                   latestReadingIntervalId = null;
               }
          }
 
-         console.log("Latest Reading script defined.");
+         console.log("Latest Reading script defined functions.");
     </script>
 
 
@@ -1009,7 +1265,7 @@
 
         // --- Helper: Escape HTML ---
          function escapeHTML(str) {
-             if(str === null || str === undefined) return '';
+             if(str === null || str === undefined) return ''; // Handle null/undefined
              return str.toString()
                     .replace(/&/g, '&mp;')
                     .replace(/</g, '&lt;')
@@ -1018,101 +1274,118 @@
                     .replace(/'/g, '&#39;');
         }
 
-        // --- Main Auth Update Function ---
+        // --- Main Auth Update & Initialization Function ---
         async function updateAuthAndInitialize() {
             const authSection = document.getElementById('user-auth-section');
             const settingsSectionEl = document.getElementById('settings-section');
             console.log("Checking session status...");
 
-            if (!authSection) { console.error("Auth section element not found!"); return; }
+            if (!authSection) { console.error("Auth section element not found! Cannot proceed."); return; }
 
             try {
                 const response = await fetch('/api/session-check');
                 if (!response.ok) {
-                    console.error(`Auth check fail: ${response.status}`);
-                    // Assume logged out on error, call UI handler
+                    console.error(`Authentication check failed: ${response.status}`);
+                     // Assume logged out on error, update UI accordingly
                      handleLogoutStateUI("Error checking status.");
-                     return; // Stop further processing on auth check error
+                     return; // Stop processing
                 }
                 const data = await response.json();
                 console.log('Session status:', data);
 
-                // Update loggedIn status attribute regardless
+                // Set data attribute for CSS and other scripts
                 authSection.dataset.loggedIn = data && data.logged_in ? 'true' : 'false';
 
                 if (data && data.logged_in) {
-                    // --- Logged In State ---
+                    // --- Logged In Flow ---
                     const userName = data.user_name ? escapeHTML(data.user_name) : 'User';
                     authSection.innerHTML = `<span>Welcome, ${userName}!</span> | <a href="/api/logout" title="Logout"><i class='bx bx-log-out'></i> Logout</a>`;
                     console.log("User is logged in.");
 
+                    // Show settings section
                     if (settingsSectionEl) settingsSectionEl.style.display = 'block';
-                    else console.error("Settings section not found!");
+                    else console.error("Settings section element not found!");
 
-                    // Fetch devices and THEN initialize dashboard
+                    // Fetch devices *first*, then initialize the dashboard
                     if (typeof fetchAndRenderDevices === 'function') {
-                         const devicesLoaded = await fetchAndRenderDevices(); // Wait for devices to load
+                         const devicesLoaded = await fetchAndRenderDevices(); // Wait for device list to populate
                          if (devicesLoaded) {
-                             console.log("Devices loaded/rendered, initializing dashboard.");
-                             if(typeof initializeDashboard === 'function') initializeDashboard();
-                             else console.error("initializeDashboard function not found!");
+                             console.log("Devices loaded/rendered, proceeding to initialize dashboard.");
+                             if(typeof initializeDashboard === 'function') {
+                                 initializeDashboard(); // Init chart, latest reading for default device
+                                 startLatestReadingRefresh(); // Start polling for latest readings
+                             } else {
+                                 console.error("initializeDashboard function not found!");
+                             }
                          } else {
-                              console.error("Failed to load devices, dashboard init may be incomplete.");
-                              // Still try to init dashboard, it should show 'no device' state
-                               if(typeof initializeDashboard === 'function') initializeDashboard();
+                              console.error("Failed to load devices. Dashboard may not function correctly.");
+                              // Still attempt to initialize dashboard to show 'no device' state
+                               if(typeof initializeDashboard === 'function') {
+                                   initializeDashboard();
+                               } else {
+                                    console.error("initializeDashboard function not found!");
+                               }
                          }
                     } else {
-                        console.error("fetchAndRenderDevices function not found!");
-                        if(typeof initializeDashboard === 'function') initializeDashboard(); // Try init anyway
+                        console.error("fetchAndRenderDevices function not found! Cannot load settings or initialize dashboard properly.");
+                        // Handle critical failure - show error message
+                        if(typeof showChartMessage === 'function') showChartMessage("Error: Cannot load device settings component.", true);
                     }
                 } else {
-                    // --- Logged Out State ---
-                    handleLogoutStateUI(); // Use helper function
+                    // --- Logged Out Flow ---
+                    handleLogoutStateUI(); // Call helper to set logged-out UI
                 }
 
             } catch (error) {
-                console.error('Error during auth check/initialization:', error);
-                 handleLogoutStateUI("Error checking status."); // Show error state
+                console.error('Error during auth check or initialization:', error);
+                 handleLogoutStateUI("Error during startup."); // Show error state in UI
             }
         }
 
-        // --- Helper to handle UI updates for logged-out state ---
+        // --- Helper Function to Handle Logged-Out UI State ---
         function handleLogoutStateUI(authMessage = null) {
              const authSection = document.getElementById('user-auth-section');
              const settingsSectionEl = document.getElementById('settings-section');
-             const deviceSelectDropdownEl = document.getElementById('deviceSelect'); // Added ref
+             const deviceSelectDropdownEl = document.getElementById('deviceSelect'); // Reference to dropdown
 
+             // Update auth link/message
              if(authSection) {
-                 authSection.innerHTML = `<a href="/login"><i class='bx ${authMessage ? 'bx-error-circle' : 'bx-log-in'}'></i> Login / Register ${authMessage ? '(Error)' : ''}</a>`;
-                 authSection.dataset.loggedIn = 'false';
+                 const icon = authMessage ? 'bx-error-circle' : 'bx-log-in'; // Show error icon if message present
+                 authSection.innerHTML = `<a href="/login"><i class='bx ${icon}'></i> Login / Register ${authMessage ? `(${escapeHTML(authMessage)})` : ''}</a>`;
+                 authSection.dataset.loggedIn = 'false'; // Ensure data attribute is false
              }
-             console.log("User is logged out or error occurred.");
-             if (settingsSectionEl) settingsSectionEl.style.display = 'none'; // Hide settings
+             console.log("User is logged out or an error occurred.");
 
-             // Initialize dashboard (should handle logged-out state)
-             if(typeof initializeDashboard === 'function') {
-                 initializeDashboard();
-             } else {
-                 console.error("initializeDashboard function not found!");
-             }
-             // Ensure refresh intervals are stopped
+             // Hide settings section
+             if (settingsSectionEl) settingsSectionEl.style.display = 'none';
+
+             // Stop polling intervals
              if(typeof stopAutoRefresh === 'function') stopAutoRefresh();
              if(typeof stopLatestReadingRefresh === 'function') stopLatestReadingRefresh();
-             // Clear/disable device dropdown
+
+             // Clear and disable device dropdown
              if (deviceSelectDropdownEl) {
                  deviceSelectDropdownEl.innerHTML = `<option value="">-- Please Login --</option>`;
                  deviceSelectDropdownEl.disabled = true;
              }
+
+             // Attempt to initialize/clear the dashboard (it should handle logged-out state)
+             if(typeof initializeDashboard === 'function') {
+                 initializeDashboard(); // Should call clearChart/clearLatestReading
+             } else {
+                 console.error("initializeDashboard function not found! Cannot clear dashboard state.");
+             }
         }
 
-        // --- Run Initialization ---
-        if (document.readyState === 'loading') {
-            document.addEventListener('DOMContentLoaded', updateAuthAndInitialize);
+        // --- Run Initialization on DOM Ready ---
+        if (document.readyState === 'loading') { // Check if DOM is still loading
+            document.addEventListener('DOMContentLoaded', updateAuthAndInitialize); // Wait for it
         } else {
-            updateAuthAndInitialize(); // Run immediately if DOM already loaded
+            updateAuthAndInitialize(); // DOM already ready, run now
         }
-        console.log("Auth & Init script finished.");
+        console.log("Auth & Init script finished execution.");
     </script>
-    
+
 </body>
 </html>
+
