@@ -19,7 +19,7 @@ from mysql.connector import Error # Added for DB specific error handling
 SWITCH_PIN = board.D21
 
 # The name of the background program being controlled.
-SERVICE_NAME = "terrarium-monitor.service"
+SERVICE_NAME = "terrarium-control.service"
 
 # How the switch is wired up. This tells the script whether the pin should normally
 # be 'low' (OFF) or 'high' (ON) when the switch isn't being flipped.
