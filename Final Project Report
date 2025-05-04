@@ -1,0 +1,692 @@
+Smart Thermostat for Dart Frog and Gecko Vivarium
+Name: Daniel McNamee Email: S00273249@atu.ie
+Student Number: S00273249
+Trello Page: https://trello.com/b/n9sFGZsO
+GitHub Team Page: Daniel-McNamee/IoT_Project: Vivarium Smart Thermostat
+Video Demonstration Link : https://youtu.be/KVfIsxlUzp4
+
+Project Summary
+Problem Statement
+Maintaining optimal environmental conditions in a dart frog and gecko vivarium is crucial for the health and well-being of these reptiles and amphibians. These species require precise temperature and humidity levels to thrive, but manual monitoring and control can be cumbersome, time-consuming and inefficient. Traditional thermostats often lack remote monitoring capabilities and personalised automation, making it challenging to ensure a stable habitat, especially when away for long periods. This is a problem I have personal experience with (especially when I am away at college until late evening) and will be able to trial and test firsthand with in my home setup.
+Proposed Solution
+This project developed a smart thermostat system using a Raspberry Pi 5 to automate temperature regulation (with humidity monitoring) within the vivarium. The system continuously monitors environmental conditions using a DHT22 sensor and controls a heating mat based on real-time temperature readings and user-defined settings fetched dynamically from the web application. A relay module is used to turn the heating element on or off depending on predefined configurable thresholds managed via the web interface. The final system comprises a Flask web application backend with a REST API, a MariaDB database, a device control script (terrarium_control.py) running on the Pi, and a service monitoring a physical control switch (switch_watcher.py).
+Key Features:
+1.	Automated Temperature Control:
+o	Dynamic & Safe Temperature Control: The system regulates temperature based on configurable minimum and maximum thresholds set per-device via the web application and fetched dynamically by the Raspberry Pi. It includes software-based safety features like a maximum heater-on duration and a minimum cooldown period to prevent overheating or excessive wear. Scheduled heating 'off' periods can also be configured remotely.
+2.	Real-Time Sensor Monitoring:
+o	Real-Time Sensor Monitoring & Logging: Temperature and humidity data is collected every 60 seconds using a DHT22 sensor. Readings are logged to a central MariaDB database for historical analysis and displayed dynamically on the web dashboard using Chart.js. 
+
+
+3.	Remote Access & Control:
+o	Comprehensive Remote Management via Web Application: A Flask web application provides a secure interface for users to: view real-time and historical sensor data charts, link and manage multiple devices, remotely configure operational settings (temperature thresholds, heating off-times) for each device, and monitor the latest readings. A physical switch connected to the Raspberry Pi allows the user to enable or disable the core terrarium-control service locally. 
+4.	Security & Reliability:
+o	Security & Reliability: The web application implements user registration and login with secure password hashing (werkzeug.security) and session management. The system architecture utilizes systemd services for managing the core device control (terrarium_control.py) and switch monitoring (switch_watcher.py) scripts, enhancing reliability. While HTTPS is recommended, data transmission security relies on the network environment in the current setup.
+Expected Benefits:
+•	Improved Stability: Ensures a consistent and healthy environment for the animals.
+•	Convenience: Allows remote monitoring, settings adjustment, and device management  from any device. Provides an additional layer of local control/safety via the physical ON/OFF switch.
+•	Energy Efficiency: Reduces unnecessary power usage by automating heating cycles.
+•	Scalability: The system can be expanded to support additional sensors and controls for further temperature control, humidity control or lighting. The web application supports multiple devices, and the use of an 8-channel relay provides hardware capacity for controlling additional elements.
+This smart thermostat project combines IoT, automation, and remote accessibility to create a customisable, cost-effective, reliable, and efficient solution for vivarium management.
+
+Research Links :
+https://trello.com/c/LI7cs9cH/3-https-githubcom-danieldean-vivariumctrl
+https://trello.com/c/aTEqOG1o/4-https-forumsraspberrypicom-viewtopicphpt302766
+https://trello.com/c/Ku3WUkPG/5-https-circuitdigestcom-microcontroller-projects-esp12-nodemcu-based-iot-weather-station
+https://trello.com/c/uvDEhz9K/6-https-projects-raspberrycom-rastherm-a-smart-thermostat-built-on-the-raspberry-pi
+https://trello.com/c/pMrAz9Yb/7-https-circuitdigestcom-microcontroller-projects-temperature-and-humidity-monitoring-webserver-with-raspberry-pi-pico-w-and-dht11
+https://trello.com/c/0uq1qH7p/13-https-iopscienceioporg-article-101088-1742-6596-1351-1-012006-meta
+https://trello.com/c/Ehv79ctH/12-https-wwwresearchgatenet-profile-razvan-bogdan-publication-350843466developingalow-costsmartterrariuminthecontextofhomeautomatio
+DIY Vivarium Lights
+Automating a DIY vivarium with a Raspberry Pi. - YouTube
+How to build a Raspberry Pi terrarium controller
+DIY Bio-Active Dart Frog Vivarium – Induku Design
+A Raspberry Pi/ESP32/Node-Red terrarium controller - Tech Explorations
+theyosh/TerrariumPI: Home automated terrarium/aquarium or other enclosed environment with a Raspberry Pi
+Smart Terrarium - Hackster.io
+All About the Reef-Pi Raspberry Pi Open-Source Reef Tank & Vivarium Controller
+The Smart Terrarium
+Raspberry Pi Automated Terrarium Climate Control
+Fully automated vivarium Ep1
+Smart Thermostat, Raspberry Pi Version
+DIY Smart Thermostat For Under $40 Using Raspberry Pi Pico W
+Terrarium automatization with Raspberry Pi
+
+Project Solution Summary
+Introduction
+Maintaining an optimal environment in a dart frog and gecko vivarium is essential for the health and well-being of these animals. Proper temperature and humidity levels prevent stress, illness, and other health complications. However, manually regulating these conditions can be inefficient and unreliable, particularly when the owner is unavailable. Traditional thermostats lack real-time monitoring and remote control capabilities, making them less effective for precise habitat management.
+To address these challenges, this project  developed a smart thermostat system using a Raspberry Pi 5. The system continuously monitors temperature and humidity, automatically controls a heating mat based on user-defined parameters, and provides remote access to live data and  comprehensive environmental settings management via the web application. By integrating sensor technology, IoT communication (via HTTP requests), and web-based control (using Flask and JavaScript), this solution provides a personalised, cost-effective, energy-efficient, and scalable approach to vivarium climate regulation.
+________________________________________
+System Architecture and Components
+The final system architecture utilizes distinct Python scripts managed by systemd services on the Raspberry Pi 5 and interacts with a central web application.
+1. Temperature and Humidity Monitoring
+A DHT22 sensor connected to GPIO 16  is used to measure temperature and humidity inside the vivarium. The sensor provides high-accuracy readings ensuring real-time tracking of environmental conditions. The terrarium_control.py script reads this sensor every 60 seconds. The Raspberry Pi processes  this data, displays it locally on an I2C LCD Display, and sends it via HTTP Post request to the /api/device/readings endpoint of the Flask web application for logging in a MariaDB database and visualization for monitoring and analysis.
+2. Automated Dynamic Heating Control
+The system regulates the vivarium's temperature by controlling a  low-voltage heating mat connected to the normally open (NO) contact of a relay module.  The relay module (controlled by GPIO 18, active-low) serves as a switch to turn the heating element on or off based on dynamic parameters fetched from the web application via /api/device/settings/<device_unique_id>:
+•	 Configurable Minimum Temperature Threshold: The heater turns ON if the current temperature falls below this user-defined value.
+•	 Configurable Maximum Temperature Threshold: The heater turns OFF if the current temperature reaches or exceeds this user-defined value.
+•	Configurable Heating Off Period: Heating remains disabled during a user-defined time window (e.g., overnight).
+•	Software Safety Limits: To prevent overheating or excessive equipment usage, the system enforces a maximum continuous heater ON duration (15 minutes) followed by a minimum OFF cooldown period (10 minutes).This automation maintains the ideal temperature range  set by the user for that specific device, preventing excessive cooling or overheating.
+
+3. Web-Based Remote Monitoring and Control
+
+A comprehensive web application, built with Flask and served by Gunicorn, provides the central hub for user interaction. Users can perform the following actions after secure login:
+•	View live sensor readings (fetched periodically via JavaScript) and historical data trends visualized using Chart.js, with selectable time ranges and automatic data aggregation.
+•	 Link and manage multiple vivarium devices. Remotely configure device-specific settings, including temperature thresholds and heating off periods.
+•	Register new user accounts and recover forgotten passwords via a security question process.
+
+4. Security and Reliability Features
+The system incorporates the following security and reliability measures:
+•	User Authentication: A full user registration and login system restricts access to the web application and device settings. Passwords are securely hashed using werkzeug.security. Flask sessions manage user login state.
+•	API Interaction: Communication between the device (terrarium_control.py) and the web server (app.py) occurs via defined REST API endpoints.Service Management: Core background processes (terrarium_control.py, switch_watcher.py) are managed as systemd services, configured to restart automatically on failure, improving overall system resilience.
+•	Physical Control: The switch_watcher.py service monitors a physical switch, allowing the user to reliably enable/disable the main heating control logic locally and logging these events to the database.
+Benefits and Impact
+1. Consistent and Precise Environmental Control
+The automated and dynamically configurable heating system ensures that the vivarium remains within the optimal temperature range, eliminating the risks associated with human error and the need for manual adjustments. Software safety limits further enhance environmental stability.
+2. Remote Accessibility for Convenience and Safety
+Users can monitor the vivarium's climate, manage devices, and configure specific environmental settings from any location, making it easier to care for the animals even when away from home.  The physical switch provides an immediate, local method to disable heating control if needed, adding a layer of safety.
+3. Energy Efficiency and Cost Savings
+By automatically turning the heating element on only when needed based on configured thresholds and off-periods, the system reduces power consumption, leading to lower energy costs while ensuring the animals' well-being.
+4. Scalability for Future Enhancements
+The project architecture allows for future expansions, such as:
+•	Humidity Control: Adding misting systems for moisture regulation.
+•	Additional Sensors: Monitoring CO₂ levels, soil moisture content or UV intensity.
+•	Smart Alerts: Sending notifications via email or mobile apps for emergency situations.
+•	Expanding Operations: I have chosen an 8 channel relay to allow for further expansion of the project, allowing control of additional devices. The database and web application architecture support managing multiple devices per user account. Utilizing a multi-channel relay provides the physical capacity to control additional elements (e.g., lights, fans, misters) with future modifications.________________________________________
+
+
+Conclusion
+This smart thermostat project leverages IoT, automation, and web-based control to provide a reliable, efficient, and intelligent solution for vivarium climate management. By ensuring precise environmental regulation through dynamically configured settings, offering comprehensive remote monitoring and device management via a secure Flask web application, and incorporating security measures like user authentication and systemd service management, this system provides a practical and scalable solution for exotic pet enthusiasts.
+
+
+
+
+Project Requirements
+1. Hardware Requirements
+•	Raspberry Pi 5 4GB – Serves as the central processing unit for sensor data collection, automation, and web communication. (running device-side scripts).
+•	DHT22 Sensor – Measures temperature and humidity within the vivarium. (connected via Base HAT to GPIO 16).
+•	Relay Module (Seeit TTL-RELAY08 ) – Controls the heating mat based on temperature readings. (control pin connected to GPIO 18, Active-LOW).
+•	Heating Mat – Provides heat when temperatures fall below the set threshold.
+•	Power Supply (5V,  3A for Raspberry Pi) – Ensures stable power for the Raspberry Pi and connected components. Separate 12V 2A DC Adapter for heating mat.
+•	MicroSD Card (32GB or higher, Class 10) – Stores the operating system, scripts, and data logs.
+•	I2C LCD Display (16x2) – Provides local visual feedback of temperature, humidity, and system status.
+•	Physical Switch – Allows local enabling/disabling of the heating control service (connected to GPIO 21 and GND).
+•	Raspberry Pi Base HAT (Convenience) – Facilitates DHT22 sensor connection.
+•	T-Cobbler and Breadboard – Used for prototyping and connecting GPIO components (LCD, Relay, Switch).
+•	Jumper Wires and Connection Blocks (e.g. WAGO 221) – For wiring components.
+
+2. Software Requirements
+•	Raspberry Pi OS – Operating system for running Python scripts and handling web connectivity.
+•	Python 3 (with required libraries: Flask, mysql.connector, requests, adafruit_dht , RPLCD.i2c, gpiozero, board, digitalio, werkzeug.security, gunicorn ) – Used for data collection, processing, and relay control.
+•	 Flask Web Framework & Gunicorn Server – Creates the web interface for remote monitoring and  device/settings control.
+•	MariaDB  – Stores sensor data, user credentials, device information, and system event logs for logging and analysis.
+•	Flask REST API – Allows authenticated remote control of the heating system.
+•	Systemd – Linux system and service manager used to run terrarium_control.py , switch_watcher.py, and the Gunicorn/Flask application as persistent background services.
+
+
+3. Functional Requirements
+•	The system must automatically turn on the heating element when the temperature drops below  the user-configured minimum threshold  and turn it off  when the temperature reaches a user-configurable maximum threshold.
+•	Sensor readings should be collected and logged every  minute for analysis.
+•	A web-based dashboard should display real-time temperature and humidity readings and provide  dynamic charts of historical readings based on user-selected time ranges (e.g. last hour, 24hrs, 7 days, custom date ranges).
+•	The user must be able to securely log in, register an account, link/unlink devices, and manually  configure heating thresholds and scheduled off-times via the web interface.
+•	The system must display current temperature, humidity, and relay status on a local LCD screen.
+•	A physical switch must allow the user to enable or disable the terrarium-control service, with the state change logged.
+•	The system must enforce software safety limits: a maximum heater ON duration and a minimum heater OFF cooldown period.
+4. Security Requirements
+•	The web interface must include user registration and authentication to restrict unauthorized access. Passwords must be securely hashed.
+•	All data transmissions should ideally be encrypted using HTTPS for security.
+•	The Raspberry Pi must be secured with a firewall and SSH hardening to prevent unauthorized remote access.
+•	Web application must manage user sessions securely.
+5. Connectivity Requirements
+•	The Raspberry Pi must have Wi-Fi or Ethernet connectivity to send data to the web server and fetch settings.
+•	The web interface should be accessible from any device connected to the  same network (current build).
+6. Safety and Reliability Requirements
+•	The relay module must be properly rated for the heating mat to prevent electrical failures.
+•	The system should include fail-safe mechanisms, such as a manual power switch and  the integrated physical switch to disable the control service. Software safeties (max on time, cooldown) must prevent runaway heating.
+•	The enclosure for electrical components must be insulated and moisture-resistant to prevent short circuits.
+•	Core services (terrarium-control, switch-watcher, web app) must run reliably as background services (systemd) and restart on failure.
+•	The terrarium-control script must handle sensor read errors gracefully and potentially turn off the heater for safety if readings become unavailable.
+
+Final Design
+Design Overview
+Initial Sketch
+The final system design evolved from the initial sketch into a multi-component IoT application. A Raspberry Pi 5 serves as the core of the physical device, reading a DHT22 sensor, displaying status on an I2C LCD, controlling a heating mat via a relay, and monitoring a physical enable/disable switch. This device communicates over the network (HTTP) with a central web application built using Flask and served by Gunicorn. The web application handles user authentication, device management, data storage (MariaDB/MySQL), data visualization (Chart.js), and serves a REST API for both the frontend JavaScript and the physical device.
+
+
+
+
+1. Final Code Design
+1.1 Software Architecture & Key Python Modules
+The final software architecture is composed of three main Python components running as systemd services, plus the database:
+•	app.py (Flask Web Application & API Server):
+o	Role: Provides the user-facing web interface (HTML/CSS/JS), handles user authentication (login, registration, sessions) using Flask sessions and werkzeug.security for password hashing, manages device linking and settings configuration, serves the REST API endpoints, processes data for charting, and interacts with the database. Hosted via Gunicorn.
+o	Key Libraries: Flask, mysql.connector, werkzeug.security, datetime, json, os, logging, secrets, functools.
+•	terrarium_control.py (Device Control Logic):
+o	Role: Runs continuously on the Raspberry Pi. Reads the DHT22 sensor (adafruit_dht, board), updates the local I2C LCD display (RPLCD.i2c), controls the heating mat relay (gpiozero) based on dynamically fetched settings, implements safety logic (max on time, cooldown), and communicates with the Flask API (requests) to post sensor readings and get settings.
+o	Key Libraries: requests, adafruit_dht, board, RPLCD.i2c, gpiozero, datetime, time, logging, signal, sys, os, uuid, json.
+
+•	switch_watcher.py (Physical Switch Monitor & Service Controller):
+o	Role: Runs continuously on the Raspberry Pi. Monitors the state of the physical switch connected to GPIO 21 (digitalio, board). Based on switch changes, it uses subprocess to execute systemctl start/stop commands to enable or disable the terrarium-control.service. It also logs these system events (monitor start/stop) to the database (mysql.connector).
+o	Key Libraries: digitalio, board, subprocess, time, signal, sys, mysql.connector.
+•	MariaDB/MySQL Database (terrarium_data):
+o	Role: Stores persistent data including user information (users table), linked device details and settings (devices table), time-series sensor readings (readings table), and system events (system_events table).
+
+
+
+2.  Final Hardware Setup
+2.1 Wiring Summary
+•	DHT22 Sensor: Connected via Base HAT to 3.3V, GND, and GPIO 16.
+•	I2C LCD: Connected to 5V, GND, SDA (GPIO 2), and SCL (GPIO 3).
+•	Relay Module: Logic pins connected to Raspberry Pi 5V (VCC), GND, and control input IN1 to GPIO 18. Heating mat circuit connected through COM and NO contacts, switched by the relay.
+•	Physical Switch: Connected between GPIO 21 and GND. Internal pull-up resistor on GPIO 21 is enabled in software (switch_watcher.py).
+•	Connections: Made using a T-Cobbler breakout to a breadboard and jumper wires.
+
+
+3.  Implemented APIs and Data Processing
+3.1 REST API (Served by app.py)
+A comprehensive REST API was implemented using Flask to facilitate communication between the web frontend, the backend logic, and the physical device. The key implemented endpoints are:
+•	(User Auth): /api/register (POST), /api/login (POST) , /api/logout (GET), /api/session-check (GET), /api/forgot-password (POST)
+•	(User Device Mgmt): /api/user/devices (GET) , /api/user/devices/link (POST), /api/user/devices/<id>/settings (PUT),       /api/user/devices/<id>/unlink (DELETE)
+•	(User Data Retrieval): /api/readings/latest (GET), /api/chartdata (GET)
+•	(Device Communication): /api/device/readings (POST) , /api/device/settings/<uid> (GET)
+
+
+
+3.2 Data Processing and Storage
+•	Sensor Data: Raw temperature and humidity readings are sent by terrarium_control.py to the /api/device/readings endpoint and stored directly in the readings table in the MariaDB/MySQL database with a timestamp and the device's unique ID.
+•	Chart Data Processing: When the web frontend requests chart data (/api/chartdata), the app.py backend retrieves the relevant raw readings from the database for the specified device and time range. It then processes this data by:
+o	Aggregating readings into time intervals (e.g., 5-min, hourly, daily averages) based on the requested range duration to optimize performance and readability.
+o	Calculating average temperature and humidity for each interval.
+o	Identifying and marking time gaps where sensor data is missing.
+o	Formatting the results (labels, temperature data, humidity data, gap information) into a JSON structure suitable for Chart.js.
+•	Device Settings: Settings updated via the /api/user/devices/<id>/settings endpoint are stored directly in the devices table. These settings are retrieved by the terrarium_control.py script via the /api/device/settings/<uid> endpoint.
+•	System Events: Start/Stop events triggered by the physical switch are logged by switch_watcher.py into the system_events table.
+
+
+
+
+
+
+
+
+Data Management Plan for Smart Thermostat System
+1. Description of Data Generated
+The smart thermostat system generates  several main types of data:
+
+A. Sensor Data (Collected every  minute)
+•	Temperature (°C) – Numeric value from the DHT22  sensor.
+•	Humidity (%) – Numeric value from the DHT22 sensor.
+•	Timestamp – Date and time of each reading (recorded by the web server upon receiving the data).
+•	Device Unique ID – Identifier linking the reading to the specific physical device.
+
+B. Control Data & Settings (Stored in the database )
+•	Relay Status (ON/OFF) – Indicates if the UVB bulb or heating mat is active. (Relay status is inferred from temperature/thresholds/time and is not explicitly logged per reading but the current state is displayed on the LCD Display).
+•	(Control is achieved via settings, not direct commands although there is a physical ON/OFF switch).
+•	Device Settings: User-defined configurations stored per device (using UUID), these include device_name, min_temp_threshold, max_temp_threshold, heating_off_start_time, heating_off_end_time.
+•	User Account Data: User name, email, hashed password, security_question, hashed security_answer.
+•	Device Linking Data: Association between user_id and device_unique_id.
+•	(While Flask/Gunicorn produce access logs, explicit security event logging beyond password hashing/sessions was not implemented in the application).
+
+C. System Event Data (Generated by switch_watcher.py)
+•	Event Type: String indicating the event (e.g. 'MONITOR_START', 'MONITOR_STOP').
+•	Details: Text providing context (e.g. 'Triggered by switch').
+•	Timestamp: Date and time the event was logged.
+
+
+
+2. Datasets Used (Database Tables)
+The project  utilizes a Maria DB/MySQL database (terrarium_data) with the following key tables for analysis, logging, and troubleshooting.
+
+A. readings Table (Sensor Readings Dataset)
+Name 		       | Data Type	 | Description					     
+------------------------ | ----------------------- |----------------------------------------------------------
+id 		       | INT (PK, AI)	 | Unique reading identifier			
+device_unique_id   | VARCHAR 	 | Foreign key linking to the devices table	
+reading_time 	       | TIMESTAMP	 | Time the reading was recorded by the server
+temperature	      | DECIMAL	 | Temperature in Celsius			
+humidity	      | DECIMAL	 | Humidity percentage			
+			
+B. devices Table (Device Information & Settings) 
+Name			    | Data Type		        | Description				
+----------------------------- | ---------------------------- | -----------------------------------------------
+id 			  | INT (PK, AI) 	      | Unique device identifier (internal DB ID)
+user_id		    | INT (FK)		        | Links device to a user in the users table
+device_unique_id  | VARCHAR (Unique)  | Unique ID generated by the physical device
+device_name 		    | VARCHAR (Nullable) | User-assigned friendly name
+min_temp_threshold     | DECIMAL (Nullable) | Minimum temperature setting
+max_temp_threshold    | DECIMAL (Nullable) | Maximum temperature setting
+heating_off_start_time | TIME (Nullable) 	   | Start time for scheduled heating off period
+heating_off_end_time   | TIME (Nullable)	     | End time for scheduled heating off period
+created_at                      | TIMESTAMP 	        | Time the device was linked
+
+
+C. users Table (User Account Information)
+Name 		       | Data Type 	          | Description					
+----------------------- | --------------------------- | ------------------------------------------------------
+id		       | INT (PK, AI) 	          | Unique user identifier			
+name		       | VARCHAR 	          | User's chosen name				
+email 		       | VARCHAR (Unique) | User's email address (used for login)	
+password 	       | VARCHAR 	          | Hashed user password			
+security_question | VARCHAR 	          | Identifier for the chosen security question	
+security_answer   | VARCHAR 	          | Hashed answer to the security question	
+created_at 	       | TIMESTAMP 	          | Time the user registered			
+
+D. system_events Table (Switch Watcher Logs)
+Name	 	| Data Type 		     | Description					
+----------------- | ----------------------------- | ----------------------------------------------------------
+id 		| INT (PK, AI) 	     | Unique event identifier				
+event_time 	| TIMESTAMP 	     | Time the event occurred			
+event_type 	| VARCHAR 		     | Type of event (e.g., 'MONITOR_START')	
+details 	| VARCHAR (Nullable) | Additional details about the event		
+
+3. APIs Used
+Communication and data management rely on the REST API provided by the Flask application (app.py). Key API endpoints facilitating the flow and management of data include:
+•	Device Data Submission: POST /api/device/readings - Used by the physical device (terrarium_control.py) to send sensor data (temperature, humidity) to the server for storage.
+•	Data Retrieval for UI:
+o	GET /api/chartdata - Retrieves processed and aggregated historical sensor data for display in charts on the web dashboard.
+o	GET /api/readings/latest - Retrieves the most recent sensor reading for display.
+•	Device Configuration Management:
+o	GET /api/device/settings/<string:device_unique_id> - Used by the physical device (terrarium_control.py) to fetch its operational settings.
+o	PUT /api/user/devices/<int:device_db_id>/settings - Allows users to update device configurations (thresholds, name, off-times) via the web UI.
+•	User & Device Linking: APIs for user registration (/api/register), login (/api/login), and linking/unlinking devices (/api/user/devices/link, /api/user/devices/<id>/unlink) manage the creation and association of user and device data.
+ API Endpoints (Listed previously)________________________________________
+
+4. Data Storage and Management
+The system  uses MariaDB ( MySQL) to manage sensor readings, device settings, user accounts and system event logs. 
+A. Data Retention Policy (Consideration)
+A data retention policy was considered but not implemented in the final code. For long-term operation, implementing automated cleanup (e.g. deleting readings older than 1 year, system_events older than 3 months) could prove useful in managing database size.
+5. Security Measures for Data Management
+The following security measures related to data management were implemented:
+A. API Security
+•	Authentication – API endpoints related to user-specific data or device settings are protected and require a valid user session (established via login). The device communication endpoints (/api/device/readings, /api/device/settings/<uid>) rely on the uniqueness of the device_unique_id. 
+•	HTTPS Encryption –  Not yet implemented.
+•	Password Security: User passwords stored in the users table are hashed using werkzeug.security.generate_password_hash.
+B. Database Security
+•	Restricted Access – Only the Raspberry Pi and authorized users can write to the database.
+________________________________________
+Conclusion
+This data management plan ensures efficient storage, secure transmission, and easy retrieval of sensor readings, user data, device settings and control logs. By integrating a structured database, secure APIs, and web-based controls, the system provides a scalable and reliable solution for vivarium temperature regulation and environmental monitoring.
+
+
+
+
+
+
+
+
+
+
+
+
+
+Implementation Plan for Smart Thermostat System
+This plan outlines the equipment needed, parts list, APIs, and code structure  for  the Raspberry Pi-based smart thermostat system.
+________________________________________
+1. Equipment & Parts List
+A. Core Components
+Item	Purpose	Quantity
+Raspberry Pi 5 4GB 	Main controller	1
+MicroSD Card (32GB, Class 10)	Raspberry Pi OS & storage	1
+Power Supply (5V, 3A USB-C)	Powers Raspberry Pi	1
+DHT22  Sensor	Temperature & humidity readings	1
+ 8-channel Relay Module (5V)	Controls UVB bulb/heating mat	1
+Heating Mat	Provides heat	1
+Jumper Wires	Connects components	10+
+Breadboard
+12V 2A DC Power Adapter
+T-Cobbler
+I2C LCD Display (16x2)
+Physical Switch
+Raspberry Pi Base HAT
+Connection Blocks (WAGO 221 and barrel jack to screw terminal adapter)	Prototyping connections
+Powers Heating Mat
+Interface RPi GPIO with breadboard
+Local Screen Display
+ON/OFF Switch
+Convenient Sensor Connection
+Secure Wire Joining
+1
+1
+1
+1
+1
+1
+1
+
+
+
+
+________________________________________
+
+
+
+
+2. System Setup & Connections
+Component Connections to Raspberry Pi 5 (via T-Cobbler/Breadboard/HAT)
+•	DHT22 Sensor: Connected via Base HAT (utilizing 3.3V, GND, and GPIO 16 / Pin 36).
+•	I2C LCD Display: Connected to 5V, GND, SDA (GPIO 2 / Pin 3), and SCL (GPIO 3 / Pin 5).
+•	Relay Module Control: Logic powered by 5V and GND. Control Input IN1 connected to GPIO 18 / Pin 12. (Module operates Active-LOW).
+•	Physical Switch: Connected between GPIO 21 / Pin 40 and GND. Internal pull-up enabled in software.
+•	Heating Mat Circuit: 12V DC adapter (+) connected to Relay COM. Relay NO connected to one heating mat wire. Other heating mat wire connected to 12V DC adapter (-).
+
+3. APIs Implemented 
+The system utilizes a REST API defined in app.py (Flask). Complete list previously provided.
+________________________________________
+4. Code Implementation
+The final implementation consists of three primary Python scripts and supporting configuration files:
+•	app.py: The core Flask web application. It handles routing for HTML pages, serves the REST API endpoints, manages user authentication and sessions, interacts with the MariaDB database (mysql.connector), and performs data processing for charts. Run via Gunicorn.
+•	terrarium_control.py: The main device-side control loop. Runs as a systemd service (terrarium-control.service). It reads the DHT22 sensor (adafruit_dht), updates the LCD (RPLCD.i2c), controls the relay based on fetched settings (gpiozero), implements safety logic, and communicates with the app.py API (requests).
+•	switch_watcher.py: Monitors the physical ON/OFF switch (digitalio). Runs as a systemd service (switch-watcher.service). Uses subprocess to start/stop the terrarium-control.service via systemctl and logs these actions to the database (mysql.connector).
+•	HTML/CSS/JS Files: Located in templates and static directories for the Flask web application (index.html, login-reg.html, login-reg.js, login-reg.css).
+•	systemd Files: .service files (terrarium-control.service, switch-watcher.service, terrarium-webapp.service) define how the background processes are managed by the operating system.
+
+5. Testing & Deployment Plan
+•	Testing: Testing was performed iteratively throughout development. This included:
+o	Unit testing of individual hardware components (sensor reads, relay toggling, LCD updates, switch detection) using simple scripts.
+o	Testing API endpoints using tools like curl or Postman (implicitly tested via web UI interactions).
+o	Manual functional testing of the web application (registration, login, device linking, settings updates, chart display, latest readings).
+o	Observational testing of the complete system (verifying terrarium_control.py responded correctly to temperature changes, fetched settings, updated LCD, and responded to the physical switch activation/deactivation via switch_watcher.py).
+o	Checking application logs (journalctl) for errors.
+•	Deployment: The system was deployed locally on the Raspberry Pi 5.
+o	The Flask web application (app.py) is served using Gunicorn for improved performance and reliability compared to the Flask development server. Gunicorn is managed by a systemd service (terrarium-webapp.service).
+o	The device control script (terrarium_control.py) and the switch monitor script (switch_watcher.py) are run as persistent background services managed by systemd (terrarium-control.service, switch-watcher.service), ensuring they start on boot and restart automatically if they crash.
+o	A MariaDB/MySQL server runs locally on the Raspberry Pi to host the terrarium_data database.
+
+
+
+
+
+Testing Approach, Execution and Evidence 
+This section outlines the testing strategy for both hardware and software components of the smart thermostat system. It includes test plans, methods, and evidence of tests carried out to ensure the system functions correctly.
+________________________________________
+1. Testing Strategy and Execution
+A. Hardware Testing
+Goal: Ensure all physical components (Raspberry Pi, sensors, relays, heating system) function correctly.
+Methods:
+Sensor (DHT22): Simple Python scripts using the adafruit_dht library were run to verify temperature/humidity readings were being generated. Readings were qualitatively compared against room conditions. (Initial script provided in original report).
+Relay Module: Simple Python scripts using gpiozero library were used to toggle the relay control pin (GPIO 18) HIGH and LOW, verifying the relay clicked and continuity changed across COM/NO terminals using a multimeter (before connecting the actual heater).
+I2C LCD: Scripts using RPLCD.i2c were run to confirm the correct I2C address (0x27) and display test messages, verifying connection and functionality. (Initial script provided in original report).
+Physical Switch: Scripts using digitalio (for switch_watcher.py) or gpiozero/RPi.GPIO were used to read the state of the input pin (GPIO 21) and confirm it changed correctly (HIGH/LOW) when the switch was toggled, validating the pull-up configuration.
+
+B. Software Testing
+Goal: Verify the Python scripts and API endpoints function  as expected.
+Methods:
+terrarium_control.py: Run directly from the command line (before setting up the service). Manually adjusted ambient temperature (e.g., warming/cooling the sensor) to observe if the relay logic triggered correctly based on default or manually set thresholds. Checked LCD output for correctness. Monitored console logs for errors or expected status messages. Verified API calls (posting data, fetching settings) were being attempted by observing logs and network traffic (if needed).
+switch_watcher.py: Run directly from the command line. Toggled the physical switch and observed console output to confirm state changes were detected. Checked if subprocess calls to systemctl start/stop terrarium-control.service were executed. Verified events were logged to the system_events table in the database.
+app.py (Flask API): Tested API endpoints related to user auth, device management, and data retrieval primarily through interaction with the web UI. Tools like curl could be used for isolated API testing if needed. Checked application logs via journalctl -u terrarium-webapp.service for backend errors during UI interactions.
+
+C. Web Interface (UI/Frontend) Testing:
+Goal: Ensure the web application functions correctly from a user perspective.
+Methods (Manual Testing):
+Registration/Login/Logout: Successfully created user accounts, logged in, observed session persistence, and logged out. Tested password recovery flow.
+Device Management: Successfully linked new devices using their unique ID, updated device names and settings (thresholds, off-times), and unlinked devices. Verified changes were reflected in the UI and persisted in the database.
+Dashboard: Verified the device selector populated correctly. Selected different devices and observed the chart and latest reading sections update. Tested various time range selections for the chart (relative and custom date ranges) and observed data loading and display. Confirmed auto-refresh functionality updated the chart and latest readings.
+Responsiveness/Layout: Basic checks on different browser window sizes (though extensive cross-browser/device testing was not performed).
+
+D. System Integration Testing:
+Goal: Verify all components work together as expected in the deployed environment.
+Methods (Observational):
+Started all systemd services (terrarium-control, switch-watcher, terrarium-webapp).
+Observed the terrarium_control.py script successfully fetching settings from the app.py API after startup.
+Verified sensor readings appeared in the readings table and were displayed correctly on the web dashboard chart and latest reading section.
+Changed settings via the web UI and observed terrarium_control.py fetching the updated settings on its next cycle and adjusting its behaviour accordingly (e.g., relay activating/deactivating at new thresholds).
+Toggled the physical switch and verified switch_watcher.py detected the change, started/stopped the terrarium-control.service (confirmed via systemctl status terrarium-control.service and observing LCD/relay activity), and logged the event in the database.
+Monitored system logs (journalctl) for unexpected errors during operation.
+
+
+
+
+
+
+4. Stress Testing
+A. Long-Term Sensor Testing
+•	Run the sensor logging script continuously for 48 hours.
+•	Verify that temperature and humidity updates remain consistent.
+No major deviations or failed readings.
+B. API Load Testing
+•	Simulate 100 API requests per minute using Apache JMeter.
+Server handles requests without crashing.
+
+•	Formal stress testing (e.g., high concurrent user load on the web app, simulating rapid sensor fluctuations, long-duration stability tests under extreme environmental conditions) was not performed due to the project scope and focus on functional implementation.
+•	Long-term reliability: The system was tested over periods of hours/days, but extended (weeks/months) testing would be required to fully assess long-term stability, potential memory leaks, or hardware degradation.
+________________________________________
+5. Evidence of Tests Carried Out
+A. Sensor Readings Log 
+Console Sensor Readings Script Output
+[OLD]
+ (Previous Tests. Final Tests can be found at the end of the document) 
+ 
+        ^ LCD Display Output
+
+
+Security Analysis for Smart Thermostat System
+Ensuring security in the smart thermostat system is crucial to prevent unauthorized access,  data breaches, and system malfunctions. The following security measures address potential vulnerabilities:
+Web Application Security (app.py, Frontend):
+•	Authentication & Authorization: A user registration and login system is implemented. Access to device management, settings configuration, and historical data requires a valid user session. Flask sessions are used for session management. Passwords submitted during registration and login are not stored in plain text; instead, secure hashes are generated using werkzeug.security.generate_password_hash and verified using werkzeug.security.check_password_hash.
+•	Password Recovery: A multi-step password recovery mechanism involving email verification and a security question/answer (also hashed) is implemented.
+•	Input Sanitization (Basic): While not explicitly using extensive input validation libraries, standard practices like using parameterized queries for database interactions (mysql.connector handles this) help mitigate SQL injection risks. Frontend JavaScript performs basic validation on user inputs (e.g., ensuring required fields are filled, checking basic formats). 
+
+API Security:
+•	Authentication: API endpoints managing user-specific data or settings (/api/user/*, /api/readings/latest, /api/chartdata) are protected using the @login_required decorator, ensuring only authenticated users with valid sessions can access them.
+•	Device API Endpoints: Endpoints used by the physical device (/api/device/readings, /api/device/settings/<uid>) currently rely on the device_unique_id for identification.
+
+1. Network Security
+•	Use HTTPS for API communication:  HTTPS is recommended for secure data transmission over public networks. In the current development setup we work over a local network and communication is over HTTP.
+
+2. Device & System Security
+•	Disable unused services: Turn off SSH access when not in use to reduce vulnerability.
+•	Use strong passwords: Secure the Raspberry Pi with a strong password to prevent brute-force attacks.
+•	Automatic software updates: Keep the Raspberry Pi OS and installed packages updated to patch vulnerabilities.
+
+
+3. Data Security
+•	Encrypt stored data: Protect user data stored in the database using hashing .
+•	Implement input validation: Prevent injection attacks by sanitizing user inputs and API requests.
+
+4. Physical Security
+•	Protect hardware from tampering: Secure the Raspberry Pi and connected components in a secure container.
+•	Power supply protection: Use surge protectors to prevent damage from power fluctuations.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Images and Videos from project
+
+
+
+
+
+
+
+
+
+
+
+
+[END OF OLD]
+
+Internet of Things – Project 2 Submission - bit.ly/42dTMln
+– Final Project Report Update, Critical Analysis, Risk Analysis & Poster Submission – due May 5th
+
+1.	Final Project Report Update ………………………………………………………………………………………………………………………………………1
+2.	Prepare an academic style poster * presenting the Final Implementation of your Project ……………………………………………………2
+3.	Critical Analysis of your Application ……………………………………………………………………………………………………………………………4
+4.	Ethics Risk Analysis of the future of your Application …………………………………………………………………………………………………….8
+5.	Individual Report ……………………………………………………………………………………………………………………………………………………..12
+
+1.	Final Project Report Update
+Link to Vivarium Smart Thermostat IoT Final Project Report Update.docx  (With Track Changes)
+Link to IoT_Final_Project_Report_WithoutChangeLogs.docx  (Without Track Changes) (Better legibility)
+Link to Video Demonstration
+
+2. Prepare an academic style poster* presenting the Final Implementation of your Project
+[Images]
+
+3. Critical Analysis of your Application
+During the development process, a critical analysis of the system's design, assumptions, potential impacts, and future possibilities was undertaken as part of Lab 7. This analysis, presented below, 
+informed design decisions and highlighted key considerations for the project's implementation and potential future development.
+3.1 Effect of the System
+•	On individuals:
+o	Provides greater flexibility and peace of mind for pet owners, knowing their reptile/amphibian/other inhabitant's environment is stable and safe, even when they are away.
+o	Increases convenience by allowing remote monitoring and adjustments via a web application.
+o	Potentially improves pet health by maintaining more precise and consistent temperature/humidity levels, crucial for many exotic pets.
+o	Reduces manual effort required for checking and adjusting environmental controls.
+o	Can be educational, helping owners better understand their pet's environmental needs and patterns.
+o	May save energy (and thus cost) compared to less precise manual thermostats or timers/smart plugs, by only heating when necessary.
+•	On society:
+o	Potentially contributes to higher standards of animal welfare in the exotic pet trade/hobby by making optimal care easier.
+o	May reduce energy consumption at a larger scale if widely adopted and proven efficient.
+o	Could generate valuable data on pet habitat conditions, potentially useful for herpetological research and understanding pet care trends.
+o	Contributes to the growth of the smart home and pet tech industries.
+o	Minimal negative societal impact anticipated, primarily related to e-waste and data privacy/security if not managed well.
+
+
+3.2 Identified Assumptions
+The initial design of the IoT system was based on several assumptions:
+1.	User Tech Savviness: Assumed users possess a smartphone, have reliable home Wi-Fi, and are comfortable installing/using a web application and configuring device settings.
+2.	Need for Precision: Assumed target pet owners value precise environmental control significantly more than basic on/off thermostats provide.
+3.	Reliability of Hardware: Assumed temperature/humidity sensors (DHT22) are sufficiently accurate and durable for long-term use in potentially humid/warm environments. 
+Assumed relays controlling heating elements are reliable.
+4.	Internet Connectivity: Assumed continuous or near-continuous internet connectivity for remote features and potentially for some core features (like fetching settings).
+5.	Value Proposition: Assumed users are willing to invest time/cost for convenience, improved monitoring, and safety benefits compared to conventional methods.
+6.	Standard Vivarium Setups: Assumed most users have standard heating elements (heat mats) controllable by the system's relays.
+3.3 Validation of Assumptions
+Methods identified to check these assumptions included:
+1.	User Tech Savviness: User surveys, interviews, usability tests, post-launch feedback analysis.
+2.	Need for Precision: Interviews with experienced keepers/vets, competitor analysis, user surveys on pain points.
+3.	Reliability of Hardware: Rigorous lab testing, long-term beta testing, checking component datasheets/reviews.
+4.	Internet Connectivity: Analysis of home internet reliability stats, designing/testing offline functionality, user surveys on outage frequency.
+5.	Value Proposition: Market research, competitor pricing analysis, willingness-to-pay surveys.
+6.	Standard Vivarium Setups: Researching common equipment, ensuring design compatibility, providing clear documentation.
+
+3.4 Reflection on New Assumptions/Insights
+The process of identifying and considering validation led to new insights and refined assumptions:
+1.	Insight: Users might be less tech-savvy than initially assumed. New Assumption: Setup and UI must be extremely simple and intuitive.
+2.	Insight: Reliability and fail-safes are paramount concerns for pet safety. New Assumption: Robust error handling, alerts (future work), and offline capability for core functions are critical. 
+(Offline capability partially addressed by systemd restarts and local control logic, but full independence requires more work).
+3.	Insight: Sensor drift in humid environments is a technical challenge. New Assumption: High-quality sensors or user calibration features might be needed for long-term accuracy.
+4.	Insight: Internet outages are a significant concern; core control must not fail. New Assumption: Core temperature control logic must function locally on the device 
+(terrarium_control.py does this based on last fetched settings).
+5.	Insight: Price sensitivity might be high. New Assumption: Clear value justification (reliability, features) or tiered options (future) are important.
+6.	Insight: Users employ diverse equipment. New Assumption: System needs flexibility or clear limitations stated. (Current system supports basic on/off relay control).
+3.5 Consideration of Different Perspectives
+The system design impacts various users differently:
+1.	Experienced Herpetologist: Values accuracy, reliability, data logging, fail-safes, customizable alerts.
+2.	Novice Pet Owner: Needs simplicity, ease of setup, clear instructions, reassurance.
+3.	Elderly User: May require simplified interfaces, larger text/buttons, values reliability.
+4.	Low-Income Individual: Highly price-sensitive, needs strong cost justification (e.g., energy savings).
+5.	Tech Enthusiast: Desires integration, API access, advanced features, sleek design.
+6.	Person with Disability: Needs accessibility features (screen reader compatibility), benefits greatly from remote control.
+
+3.6 Imagined "What-if" Scenarios (Future Possibilities)
+Exploring future possibilities revealed creative potential:
+1.	Integrated Visual Monitoring: Add camera feed to the application.
+2.	Learned Thermal Properties: Optimize heating/cooling cycles using ML based on enclosure characteristics.
+3.	Expanded Control: Integrate lighting cycles, misting systems, feeders.
+4.	Shared Research Data: Allow opt-in anonymous data sharing for scientific or veterinary use.
+5.	Predictive Equipment Failure: Use ML to analyze heater performance and predict failure.
+6.	Habitat Profiles: Download pre-configured environmental settings based on pet species.
+3.7 Informed Actions Taken/Considered
+Based on this analysis, the following actions influenced the final implementation or are key considerations:
+1.	Action: Prioritized development of core temperature control logic running locally on the device (terrarium_control.py) using last fetched settings. (Addresses internet reliability).
+2.	Action: Added fail-safe software limits (max heater on time, cooldown period) and basic sensor error handling in terrarium_control.py. (Addresses pet safety).
+3.	Action: Developed a user-friendly web interface, although further simplification based on usability testing would be beneficial. (Addresses user tech-savviness).
+4.	Consideration: Sensor drift remains a potential long-term issue; calibration features are future work.
+5.	Consideration: Price/value proposition reinforced the need for a robust and feature-rich implementation.
+6.	Action: Focused on reliable on/off control suitable for common heating mats; documented limitations. (Addresses equipment variety).
+7.	Action: Implemented systemd services for improved reliability and automatic restarts.
+8.	Action: Added the physical switch (switch_watcher.py) for an additional layer of local control and safety feedback.
+
+4. Ethics Risk Analysis of the future of your Application
+Use the Ethical OS to evaluate whether your project poses future risks, by scoring your project for likelihood and impact in each Risk Zone e.g.
+
+Project Name
+
+Risk Zone	Risk Descriptions	Likelihood (Score 1-5)	Impact (Score 1-5)	Risk Score
+Likelihood x Impact	Risk Remediation Actions Required
+Zone 1 - Truth, Disinformation, Propaganda	Risk of system providing inaccurate environmental data due to sensor drift/failure, leading to users unknowingly providing substandard care or making poor husbandry 
+decisions.	3	5	15	Implement sensor health checks/alerts. Provide clear guidance on sensor lifespan and potential drift. 
+Include user calibration feature. 
+Display sensor status prominently in web UI. 
+Disclaimer about data accuracy limitations.
+
+Zone 2 - Addiction & the Dopamine Economy	Risk that the detailed real-time data encourages users towards over-optimization or excessive micro-management of temperature settings in response to minor fluctuations.
+This could lead to less stable conditions or cause excessive cycling and premature wear on the heating element and relay.	2	3	6	Design UI to emphasize stability trends over raw fluctuating numbers. 
+Implement a user guide to educate users on the importance of stable ranges vs. exact points. 
+Consider rate-limiting settings changes. 
+
+Zone 3 - Economic & Asset Inequalities	Risk of the technology being too costly for some owners, creating a perception that optimal pet care requires expensive tech, potentially excluding responsible but 
+lower-income keepers.	3	2	6	Explore cost-reduction options (e.g. simpler hardware/features). 
+Offer tiered product versions. 
+Provide clear documentation on achieving good husbandry without automation. Promote repairability and longevity.
+
+Zone 4 - Machine Ethics & 
+Algorithmic Biases	Risk of future ML features (e.g., predictive maintenance, optimized control) failing unexpectedly or making biased decisions due to limited training data, potentially harming pets.
+3	4	12	Rigorous testing & validation of ML models before deployment. 
+Ensure user override capability for ML decisions. 
+Implement robust non-ML fail-safes. 
+Use diverse datasets for training.
+Monitor ML performance continuously.
+
+Zone 5 - Surveillance State	Risk of aggregated user interaction or device status data being used (or inferred if breached) to determine user presence/absence patterns, potentially compromising physical security.
+2	5	10	Minimize logging of non-essential user activity. 
+Be transparent in privacy policy about data collected. 
+Secure system against breaches. 
+Avoid collecting precise location data. 
+Offer data deletion options.
+
+Zone 6 - Data Control & Monetization	Risk of user data (email, pet type inferred from settings) or aggregated environmental data being shared or sold without explicit, informed consent, eroding user trust.	
+3	4	12	Implement a clear, concise privacy policy. 
+Obtain explicit, opt-in consent for any data sharing/aggregation. 
+Provide user controls for data access/download/deletion (GDPR). 
+Anonymize any shared data.
+
+Zone 7 - Implicit Trust & 
+User Understanding	Risk of users becoming overly reliant on the system "set and forget", neglecting essential manual checks (visual pet health, enclosure cleanliness, backup systems), 
+leading to harm if the system fails silently.	4	4	16	Provide extensive documentation emphasizing the need for continued manual oversight. 
+Design UI to clearly show system status (online, sensor OK, errors). 
+Implement robust alerts for system/sensor failures.
+
+Zone 8 - Hateful &
+Criminal Actors	Risk of attackers compromising user accounts (weak passwords) or the system itself (unpatched RPi/software) to maliciously alter settings, disable heating, and harm pets.	2	5	10	Enforce strong password policies. Implement multi-factor authentication. 
+Secure web application against common vulnerabilities. 
+Keep OS/dependencies updated. 
+Secure database credentials.
+  
+
+
+
+
+
+
+
+
+
+
+
+
+5. Individual Report
+As this project was undertaken individually, this report addresses the spirit of the group reflection guidelines but from a solo perspective. As the sole contributor, I was responsible for the entire project 
+lifecycle, encompassing initial research and design, hardware selection and integration (Raspberry Pi 5, DHT22 sensor, relay, LCD, switch, heating implement), backend development (Python scripts for device 
+control, switch monitoring, Flask web application/API), database setup (MariaDB), frontend design (HTML/CSS/JavaScript), systemd service configuration, testing, and documentation. This solo approach worked 
+well in ensuring a cohesive vision and allowed for deep learning across all technical areas involved. However the main challenge was managing the breadth of the required skillset and the significant workload, 
+particularly when troubleshooting complex issues that spanned both hardware and software components without the benefit of immediate peer discussion or task delegation. While the project ultimately came 
+together successfully, I can see now how putting extra thought into how the device script and web application needed to talk to each other early on might have eased some of the challenges that popped up 
+when getting all the different hardware and software pieces to cooperate smoothly, especially when debugging complex interactions alone.
